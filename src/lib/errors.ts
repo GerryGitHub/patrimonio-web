@@ -1,10 +1,20 @@
 import { ApiError } from './http';
 
-export type ContextoError = 'login' | 'registro' | 'datos' | 'sesion';
+export type ContextoError =
+  | 'login'
+  | 'registro'
+  | 'datos'
+  | 'sesion'
+  | 'portafolio';
 
 /** Indica si el error corresponde a una sesión ausente o caducada. */
 export function esNoAutenticado(error: unknown): boolean {
   return error instanceof ApiError && error.status === 401;
+}
+
+/** Indica si el recurso solicitado no existe o no es accesible. */
+export function esNoEncontrado(error: unknown): boolean {
+  return error instanceof ApiError && error.status === 404;
 }
 
 /**
@@ -27,7 +37,11 @@ export function mensajeDeError(
       case 'EMAIL_DUPLICADO':
         return 'Ya existe una cuenta con ese correo. Inicia sesión o usa otro correo.';
       case 'VALIDACION_ENTRADA':
-        return 'Revisa los datos introducidos: el nombre, el correo o la contraseña no son válidos.';
+        return contexto === 'portafolio'
+          ? 'Revisa los datos del portafolio: el nombre o la descripción no son válidos.'
+          : 'Revisa los datos introducidos: el nombre, el correo o la contraseña no son válidos.';
+      case 'MONEDA_INVALIDA':
+        return 'La moneda seleccionada no está disponible. Actualiza la página e inténtalo de nuevo.';
       case 'ACCESO_DENEGADO':
         return 'No se pudo verificar la seguridad de la solicitud. Recarga la página e inténtalo de nuevo.';
       case 'NO_ENCONTRADO':

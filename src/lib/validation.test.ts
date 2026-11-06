@@ -2,10 +2,13 @@ import { describe, expect, it } from 'vitest';
 import {
   tieneErrores,
   validarConfirmacion,
+  validarDescripcionPortafolio,
   validarEmail,
   validarLogin,
   validarNombre,
+  validarNombrePortafolio,
   validarPassword,
+  validarPortafolio,
   validarRegistro,
 } from './validation';
 
@@ -96,5 +99,35 @@ describe('validarLogin', () => {
     const errores = validarLogin({ email: 'mal', password: '' });
     expect(errores.email).toBeDefined();
     expect(errores.password).toBeDefined();
+  });
+});
+
+describe('validarPortafolio', () => {
+  it('acepta datos válidos y una descripción vacía', () => {
+    const errores = validarPortafolio({
+      nombre: 'Largo plazo',
+      descripcion: '',
+      monedaBaseId: 'moneda-1',
+    });
+
+    expect(tieneErrores(errores)).toBe(false);
+  });
+
+  it('exige nombre y moneda base', () => {
+    const errores = validarPortafolio({
+      nombre: '   ',
+      descripcion: '',
+      monedaBaseId: '',
+    });
+
+    expect(errores.nombre).toBeDefined();
+    expect(errores.monedaBaseId).toBeDefined();
+  });
+
+  it('limita el nombre a 150 caracteres y la descripción a 500', () => {
+    expect(validarNombrePortafolio('a'.repeat(150))).toBeUndefined();
+    expect(validarNombrePortafolio('a'.repeat(151))).toBeDefined();
+    expect(validarDescripcionPortafolio('a'.repeat(500))).toBeUndefined();
+    expect(validarDescripcionPortafolio('a'.repeat(501))).toBeDefined();
   });
 });

@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { listarPortafolios } from '../api/portafolios';
 import type { Portafolio } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
+import { CrearPortafolioForm } from '../components/CrearPortafolioForm';
 import { Alerta, Boton, EstadoVacio, Esqueleto } from '../components/ui';
 import {
   IconoFlecha,
+  IconoMas,
   IconoPortafolio,
   IconoRecargar,
   IconoVacio,
@@ -13,12 +15,26 @@ import {
 import { esNoAutenticado, mensajeDeError } from '../lib/errors';
 import { primerNombre, saludo } from '../lib/format';
 
+interface EstadoNavegacion {
+  seleccionado?: string;
+}
+
 export function DashboardPage() {
   const { usuario, marcarSesionExpirada } = useAuth();
+  const location = useLocation();
+
   const [portafolios, setPortafolios] = useState<Portafolio[]>([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [intento, setIntento] = useState(0);
+
+  const [mostrandoFormulario, setMostrandoFormulario] = useState(false);
+  const [confirmacion, setConfirmacion] = useState<Portafolio | null>(null);
+  const [seleccionado, setSeleccionado] = useState<string | null>(null);
+
+  const seleccionadoDesdeNavegacion =
+    (location.state as EstadoNavegacion | null)?.seleccionado ?? null;
+  const seleccionadoId = seleccionado ?? seleccionadoDesdeNavegacion;
 
   const recargar = useCallback(() => setIntento((valor) => valor + 1), []);
 
@@ -55,6 +71,21 @@ export function DashboardPage() {
     };
   }, [intento, marcarSesionExpirada]);
 
+  function alCrear(creado: Portafolio) {
+    setPortafolios((actuales) =>
+      [...actuales, creado].sort((a, b) =>
+        a.nombre.localeCompare(b.nombre, 'es'),
+      ),
+    );
+    setSeleccionado(creado.id);
+    setConfirmacion(creado);
+    setMostrandoFormulario(false);
+    setError(null);
+    recargar();
+  }
+
+  const puedeCrear = !cargando && !error;
+
   return (
     <div className="pagina">
       <header className="pagina__cabecera">
@@ -83,6 +114,29 @@ export function DashboardPage() {
         </div>
       </header>
 
+      {confirmacion ? (
+        <Alerta variante="exito">
+          <div className="alerta__accion">
+            <span>
+              Portafolio «{confirmacion.nombre}» creado correctamente.
+            </span>
+            <Link
+              className="boton boton--secundario"
+              to={`/portafolios/${confirmacion.id}`}
+            >
+              Abrir portafolio
+            </Link>
+          </div>
+        </Alerta>
+      ) : null}
+
+      {mostrandoFormulario ? (
+        <CrearPortafolioForm
+          onCreado={alCrear}
+          onCancelar={() => setMostrandoFormulario(false)}
+        />
+      ) : null}
+
       <section className="seccion" aria-labelledby="titulo-portafolios">
         <div className="seccion__cabecera">
           <div>
@@ -91,16 +145,24 @@ export function DashboardPage() {
               Selecciona un portafolio para consultar sus cuentas financieras.
             </p>
           </div>
-          {!cargando && !error && portafolios.length > 0 ? (
-            <Boton
-              variante="secundario"
-              onClick={recargar}
-              aria-label="Actualizar portafolios"
-            >
-              <IconoRecargar />
-              Actualizar
-            </Boton>
-          ) : null}
+          <div className="seccion__acciones">
+            {puedeCrear && !mostrandoFormulario ? (
+              <Boton onClick={() => setMostrandoFormulario(true)}>
+                <IconoMas />
+                Nuevo portafolio
+              </Boton>
+            ) : null}
+            {!cargando && !error && portafolios.length > 0 ? (
+              <Boton
+                variante="secundario"
+                onClick={recargar}
+                aria-label="Actualizar portafolios"
+              >
+                <IconoRecargar />
+                Actualizar
+              </Boton>
+            ) : null}
+          </div>
         </div>
 
         {cargando ? (
@@ -126,30 +188,57 @@ export function DashboardPage() {
           <EstadoVacio
             icono={<IconoVacio />}
             titulo="Todavía no hay portafolios"
-            descripcion="Cuando tengas acceso a un portafolio, aparecerá aquí automáticamente."
+            descripcion="Crea tu primer portafolio para empezar a organizar tus cuentas financieras."
+            accion={
+              <Boton onClick={() => setMostrandoFormulario(true)}>
+                <IconoMas />
+                Crear portafolio
+              </Boton>
+            }
           />
         ) : (
           <div className="portafolios">
-            {portafolios.map((portafolio) => (
-              <Link
-                className="portafolio"
-                key={portafolio.id}
-                to={`/portafolios/${portafolio.id}`}
-              >
-                <span className="portafolio__icono" aria-hidden="true">
-                  <IconoPortafolio />
-                </span>
-                <span className="portafolio__cuerpo">
-                  <span className="portafolio__nombre">{portafolio.nombre}</span>
-                  <span className="portafolio__detalle">
-                    Moneda base · {portafolio.monedaBaseId.slice(0, 8)}
+            {portafolios.map((portafolio) => {
+              const esSeleccionado = portafolio.id === seleccionadoId;
+              return (
+                <Link
+                  className={`portafolio ${
+                    esSeleccionado ? 'portafolio--seleccionado' : ''
+                  }`}
+                  key={portafolio.id}
+                  to={`/portafolios/${portafolio.id}`}
+                  aria-label={`Abrir el portafolio ${portafolio.nombre}`}
+                >
+                  <span className="portafolio__icono" aria-hidden="true">
+                    <IconoPortafolio />
                   </span>
-                </span>
-                <span className="portafolio__flecha" aria-hidden="true">
-                  <IconoFlecha />
-                </span>
-              </Link>
-            ))}
+                  <span className="portafolio__cuerpo">
+                    <span className="portafolio__encabezado">
+                      <span className="portafolio__nombre">
+                        {portafolio.nombre}
+                      </span>
+                      {esSeleccionado ? (
+                        <span className="portafolio__marca">
+                          Seleccionado
+                        </span>
+                      ) : null}
+                    </span>
+                    <span className="portafolio__descripcion">
+                      {portafolio.descripcion ?? 'Sin descripción.'}
+                    </span>
+                    <span className="portafolio__detalle">
+                      <span className="moneda-chip">
+                        {portafolio.monedaBase.codigo}
+                      </span>
+                      {portafolio.monedaBase.nombre}
+                    </span>
+                  </span>
+                  <span className="portafolio__flecha" aria-hidden="true">
+                    <IconoFlecha />
+                  </span>
+                </Link>
+              );
+            })}
           </div>
         )}
       </section>

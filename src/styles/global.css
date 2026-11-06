@@ -290,6 +290,15 @@ svg {
   box-shadow: 0 0 0 4px rgba(31, 92, 74, 0.13);
 }
 
+.campo__control--textarea {
+  min-height: 96px;
+  resize: vertical;
+}
+
+.campo__control--select {
+  cursor: pointer;
+}
+
 .campo--error .campo__control {
   border-color: var(--peligro);
 }
@@ -390,6 +399,51 @@ svg {
   justify-content: space-between;
   gap: 0.9rem;
   width: 100%;
+}
+
+/* ------------------------------------------------- Formulario portafolio */
+
+.panel-formulario {
+  display: grid;
+  gap: 1rem;
+  padding: clamp(1.25rem, 3vw, 1.75rem);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  background: var(--superficie);
+  box-shadow: var(--sombra-sm);
+  animation: aparecer 280ms ease both;
+}
+
+.panel-formulario__cabecera {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.panel-formulario__cabecera h2 {
+  font-size: 1.2rem;
+  letter-spacing: -0.015em;
+}
+
+.panel-formulario__cabecera p:not(.eyebrow) {
+  max-width: 62ch;
+  margin-top: 0.25rem;
+  font-size: 0.88rem;
+  color: var(--texto-suave);
+}
+
+.formulario--portafolio {
+  max-width: 640px;
+  margin-top: 0;
+}
+
+.formulario__acciones {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  flex-wrap: wrap;
 }
 
 /* -------------------------------------------------------------- Auth */
@@ -743,6 +797,13 @@ svg {
   color: var(--texto-suave);
 }
 
+.seccion__acciones {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
 .volver {
   display: inline-flex;
   align-items: center;
@@ -818,6 +879,13 @@ svg {
   margin-right: auto;
 }
 
+.portafolio__encabezado {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-width: 0;
+}
+
 .portafolio__nombre {
   font-weight: 650;
   letter-spacing: -0.01em;
@@ -826,9 +894,54 @@ svg {
   white-space: nowrap;
 }
 
+.portafolio__descripcion {
+  display: -webkit-box;
+  overflow: hidden;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  color: var(--texto-suave);
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
 .portafolio__detalle {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-top: 0.15rem;
   font-size: 0.78rem;
   color: var(--texto-suave);
+}
+
+.moneda-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  background: var(--verde-claro);
+  color: var(--verde);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+.portafolio__marca {
+  flex: none;
+  padding: 0.12rem 0.5rem;
+  border-radius: 999px;
+  background: var(--oro-suave);
+  color: #7d6027;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.portafolio--seleccionado {
+  border-color: rgba(31, 92, 74, 0.55);
+  box-shadow:
+    0 0 0 2px rgba(31, 92, 74, 0.12),
+    var(--sombra-sm);
 }
 
 .portafolio__flecha {
@@ -963,6 +1076,109 @@ svg {
 .insignia--inactiva {
   background: #f1efea;
   color: #6d746f;
+}
+
+/* -------------------------------------------- Detalle y resumen */
+
+.detalle {
+  display: grid;
+  gap: 1rem;
+  padding: 1.35rem 1.4rem;
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  background: var(--superficie);
+  box-shadow: var(--sombra-sm);
+}
+
+.detalle--esqueleto {
+  min-height: 150px;
+  align-content: start;
+}
+
+.detalle__cabecera {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.detalle__icono {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 46px;
+  height: 46px;
+  border-radius: 13px;
+  background: var(--oro-suave);
+  color: #8a6a2c;
+}
+
+.detalle__icono svg {
+  width: 22px;
+  height: 22px;
+}
+
+.detalle__titulo {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.detalle__titulo h3 {
+  font-size: 1.15rem;
+  letter-spacing: -0.015em;
+}
+
+.detalle__descripcion {
+  font-size: 0.92rem;
+  color: var(--texto-suave);
+}
+
+.detalle__datos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.9rem 1.5rem;
+  padding-top: 0.9rem;
+  border-top: 1px dashed var(--borde);
+}
+
+.detalle__datos dt,
+.resumen__dato dt {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--texto-suave);
+}
+
+.detalle__datos dd {
+  margin-top: 0.15rem;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--tinta-700);
+}
+
+.resumen {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 0.9rem;
+}
+
+.resumen__dato {
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-sm);
+  background: var(--superficie);
+  box-shadow: var(--sombra-sm);
+}
+
+.resumen__dato dd {
+  margin-top: 0.15rem;
+  font-size: 1.6rem;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  color: var(--tinta-700);
 }
 
 /* --------------------------------------------------------- Estados */
@@ -1191,6 +1407,14 @@ svg {
 
   .portafolios {
     grid-template-columns: 1fr;
+  }
+
+  .formulario__acciones {
+    justify-content: stretch;
+  }
+
+  .formulario__acciones .boton {
+    width: 100%;
   }
 
   .cuenta {

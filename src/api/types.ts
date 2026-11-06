@@ -4,9 +4,26 @@ export interface Usuario {
   nombre: string;
 }
 
+export interface Moneda {
+  id: string;
+  codigo: string;
+  nombre: string;
+  simbolo: string | null;
+  decimales: number;
+}
+
 export interface Portafolio {
   id: string;
   nombre: string;
+  descripcion: string | null;
+  monedaBaseId: string;
+  monedaBase: Moneda;
+  activo: boolean;
+}
+
+export interface CrearPortafolioDatos {
+  nombre: string;
+  descripcion?: string;
   monedaBaseId: string;
 }
 

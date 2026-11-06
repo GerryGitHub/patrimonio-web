@@ -4,6 +4,8 @@ import {
   type ButtonHTMLAttributes,
   type InputHTMLAttributes,
   type ReactNode,
+  type SelectHTMLAttributes,
+  type TextareaHTMLAttributes,
 } from 'react';
 import {
   IconoAlerta,
@@ -90,6 +92,110 @@ export function Campo({
         />
         {sufijo}
       </div>
+      {error ? (
+        <p className="campo__error" id={`${inputId}-error`} role="alert">
+          {error}
+        </p>
+      ) : ayuda ? (
+        <p className="campo__ayuda" id={`${inputId}-ayuda`}>
+          {ayuda}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+interface CampoTextareaProps
+  extends TextareaHTMLAttributes<HTMLTextAreaElement> {
+  etiqueta: string;
+  error?: string;
+  ayuda?: string;
+}
+
+export function CampoTextarea({
+  etiqueta,
+  error,
+  ayuda,
+  id,
+  className,
+  ...props
+}: CampoTextareaProps) {
+  const generado = useId();
+  const inputId = id ?? generado;
+  const descripcionId = error
+    ? `${inputId}-error`
+    : ayuda
+      ? `${inputId}-ayuda`
+      : undefined;
+
+  return (
+    <div
+      className={`campo ${error ? 'campo--error' : ''} ${className ?? ''}`.trim()}
+    >
+      <label className="campo__etiqueta" htmlFor={inputId}>
+        {etiqueta}
+      </label>
+      <textarea
+        id={inputId}
+        className="campo__control campo__control--textarea"
+        aria-invalid={error ? true : undefined}
+        aria-describedby={descripcionId}
+        {...props}
+      />
+      {error ? (
+        <p className="campo__error" id={`${inputId}-error`} role="alert">
+          {error}
+        </p>
+      ) : ayuda ? (
+        <p className="campo__ayuda" id={`${inputId}-ayuda`}>
+          {ayuda}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+interface CampoSelectProps
+  extends SelectHTMLAttributes<HTMLSelectElement> {
+  etiqueta: string;
+  error?: string;
+  ayuda?: string;
+  children: ReactNode;
+}
+
+export function CampoSelect({
+  etiqueta,
+  error,
+  ayuda,
+  children,
+  id,
+  className,
+  ...props
+}: CampoSelectProps) {
+  const generado = useId();
+  const inputId = id ?? generado;
+  const descripcionId = error
+    ? `${inputId}-error`
+    : ayuda
+      ? `${inputId}-ayuda`
+      : undefined;
+
+  return (
+    <div
+      className={`campo ${error ? 'campo--error' : ''} ${className ?? ''}`.trim()}
+    >
+      <label className="campo__etiqueta" htmlFor={inputId}>
+        {etiqueta}
+      </label>
+      <select
+        id={inputId}
+        className="campo__control campo__control--select"
+        aria-invalid={error ? true : undefined}
+        aria-describedby={descripcionId}
+        {...props}
+      >
+        {children}
+      </select>
       {error ? (
         <p className="campo__error" id={`${inputId}-error`} role="alert">
           {error}

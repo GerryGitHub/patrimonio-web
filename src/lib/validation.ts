@@ -12,6 +12,12 @@ export interface ErroresRegistro {
   confirmacion?: string;
 }
 
+export interface ErroresPortafolio {
+  nombre?: string;
+  descripcion?: string;
+  monedaBaseId?: string;
+}
+
 export function validarNombre(nombre: string): string | undefined {
   const valor = nombre.trim();
   if (!valor) {
@@ -84,6 +90,40 @@ export function validarRegistro(datos: {
     email: validarEmail(datos.email),
     password: validarPassword(datos.password),
     confirmacion: validarConfirmacion(datos.password, datos.confirmacion),
+  };
+}
+
+export function validarNombrePortafolio(nombre: string): string | undefined {
+  const valor = nombre.trim();
+  if (!valor) {
+    return 'Escribe un nombre para el portafolio.';
+  }
+  if (valor.length > 150) {
+    return 'El nombre no puede superar los 150 caracteres.';
+  }
+  return undefined;
+}
+
+export function validarDescripcionPortafolio(
+  descripcion: string,
+): string | undefined {
+  if (descripcion.trim().length > 500) {
+    return 'La descripción no puede superar los 500 caracteres.';
+  }
+  return undefined;
+}
+
+export function validarPortafolio(datos: {
+  nombre: string;
+  descripcion: string;
+  monedaBaseId: string;
+}): ErroresPortafolio {
+  return {
+    nombre: validarNombrePortafolio(datos.nombre),
+    descripcion: validarDescripcionPortafolio(datos.descripcion),
+    monedaBaseId: datos.monedaBaseId
+      ? undefined
+      : 'Selecciona una moneda base.',
   };
 }
 

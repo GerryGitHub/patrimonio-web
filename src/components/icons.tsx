@@ -144,3 +144,22 @@ export function IconoVacio(props: IconoProps) {
     </Base>
   );
 }
+
+export function IconoMas(props: IconoProps) {
+  return (
+    <Base {...props}>
+      <path d="M12 5v14" />
+      <path d="M5 12h14" />
+    </Base>
+  );
+}
+
+export function IconoMoneda(props: IconoProps) {
+  return (
+    <Base {...props}>
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M12 7.5v9" />
+      <path d="M14.5 9.5c-.6-.7-1.5-1-2.5-1-1.4 0-2.5.7-2.5 1.9 0 2.7 5 1.3 5 4 0 1.2-1.1 1.9-2.5 1.9-1 0-1.9-.3-2.5-1" />
+    </Base>
+  );
+}

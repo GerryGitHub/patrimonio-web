@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { esNoAutenticado, mensajeDeError } from './errors';
+import { esNoAutenticado, esNoEncontrado, mensajeDeError } from './errors';
 import { ApiError } from './http';
 
 describe('mensajeDeError', () => {
@@ -25,8 +25,18 @@ describe('mensajeDeError', () => {
     ).toContain('Revisa los datos');
 
     expect(
+      mensajeDeError(new ApiError(400, 'VALIDACION_ENTRADA'), 'portafolio'),
+    ).toContain('portafolio');
+
+    expect(
       mensajeDeError(new ApiError(403, 'ACCESO_DENEGADO'), 'datos'),
     ).toContain('Recarga la página');
+  });
+
+  it('explica que la moneda base no está disponible', () => {
+    expect(
+      mensajeDeError(new ApiError(422, 'MONEDA_INVALIDA'), 'portafolio'),
+    ).toContain('moneda');
   });
 
   it('traduce un fallo de red', () => {
@@ -51,5 +61,13 @@ describe('esNoAutenticado', () => {
     expect(esNoAutenticado(new ApiError(401))).toBe(true);
     expect(esNoAutenticado(new ApiError(403))).toBe(false);
     expect(esNoAutenticado(new Error('401'))).toBe(false);
+  });
+});
+
+describe('esNoEncontrado', () => {
+  it('solo reconoce el 404 del cliente HTTP', () => {
+    expect(esNoEncontrado(new ApiError(404, 'NO_ENCONTRADO'))).toBe(true);
+    expect(esNoEncontrado(new ApiError(403))).toBe(false);
+    expect(esNoEncontrado(new Error('404'))).toBe(false);
   });
 });
