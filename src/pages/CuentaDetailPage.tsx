@@ -15,13 +15,13 @@ import type {
   TipoCuenta,
 } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
-import {
-  Alerta,
-  Boton,
-  Esqueleto,
-  EstadoVacio,
-  Insignia,
-} from '../components/ui';
+import { ConfirmationDialog } from '../components/ConfirmationDialog';
+import { EmptyState } from '../components/EmptyState';
+import { ErrorState } from '../components/ErrorState';
+import { FinancialCard } from '../components/FinancialCard';
+import { PageHeader } from '../components/PageHeader';
+import { StatusBadge } from '../components/StatusBadge';
+import { Alerta, Boton, Esqueleto } from '../components/ui';
 import {
   IconoCuenta,
   IconoEditar,
@@ -176,141 +176,114 @@ export function CuentaDetailPage() {
     (elemento) => elemento.id === cuenta?.tipoCuentaId,
   );
   const moneda = monedas.find((elemento) => elemento.id === cuenta?.monedaId);
-  const enlacePortafolio = `/portafolios/${encodeURIComponent(portafolioId)}`;
+  const enlacePortafolio = `/activos/liquidez/${encodeURIComponent(
+    portafolioId,
+  )}`;
 
   return (
-    <div className="pagina">
+    <div className="page">
       <Link className="volver" to={enlacePortafolio}>
         <IconoVolver />
         Volver al portafolio
       </Link>
 
-      <header className="pagina__cabecera">
-        <div className="pagina__texto">
-          <p className="eyebrow">Cuenta financiera</p>
-          <h1>
-            {cargando
-              ? 'Cargando cuenta…'
-              : noEncontrado
-                ? 'Cuenta no encontrada'
-                : (cuenta?.nombre ?? 'Cuenta financiera')}
-          </h1>
-          <p className="pagina__subtitulo">
-            {portafolio
-              ? `Portafolio ${portafolio.nombre}. La referencia bancaria se muestra enmascarada.`
-              : 'Detalle de la cuenta financiera.'}
-          </p>
-        </div>
-
-        {!cargando && cuenta ? (
-          <div className="pagina__meta acciones-detalle">
-            <Link
-              className="boton boton--secundario"
-              to={`${enlacePortafolio}/cuentas/${encodeURIComponent(cuenta.id)}/editar`}
-            >
-              <IconoEditar />
-              Editar
-            </Link>
-            <Boton
-              variante={cuenta.activo ? 'peligro' : 'primario'}
-              onClick={() => {
-                setAviso(null);
-                setConfirmandoEstado(true);
-              }}
-              disabled={cambiandoEstado}
-            >
-              <IconoPower />
-              {cuenta.activo ? 'Desactivar' : 'Reactivar'}
-            </Boton>
-          </div>
-        ) : null}
-      </header>
+      <PageHeader
+        eyebrow="Mis activos · Cuenta financiera"
+        titulo={
+          cargando
+            ? 'Cargando cuenta…'
+            : noEncontrado
+              ? 'Cuenta no encontrada'
+              : (cuenta?.nombre ?? 'Cuenta financiera')
+        }
+        descripcion={
+          portafolio
+            ? `Portafolio ${portafolio.nombre}. La referencia bancaria se muestra enmascarada.`
+            : 'Detalle de la cuenta financiera.'
+        }
+        acciones={
+          !cargando && cuenta ? (
+            <>
+              <Link
+                className="btn btn--secundario"
+                to={`${enlacePortafolio}/cuentas/${encodeURIComponent(
+                  cuenta.id,
+                )}/editar`}
+              >
+                <IconoEditar />
+                Editar
+              </Link>
+              <Boton
+                variante={cuenta.activo ? 'peligro' : 'primario'}
+                onClick={() => {
+                  setAviso(null);
+                  setErrorEstado(null);
+                  setConfirmandoEstado(true);
+                }}
+                disabled={cambiandoEstado}
+              >
+                <IconoPower />
+                {cuenta.activo ? 'Desactivar' : 'Reactivar'}
+              </Boton>
+            </>
+          ) : null
+        }
+        meta={
+          !cargando && cuenta ? (
+            <StatusBadge estado={cuenta.activo ? 'activo' : 'inactivo'}>
+              {cuenta.activo ? 'Cuenta activa' : 'Cuenta inactiva'}
+            </StatusBadge>
+          ) : null
+        }
+      />
 
       {aviso ? (
         <Alerta variante="exito">
           <div className="alerta__accion">
             <span>{aviso}</span>
-            <Boton
-              variante="secundario"
-              onClick={() => setAviso(null)}
-            >
+            <Boton variante="secundario" onClick={() => setAviso(null)}>
               Entendido
             </Boton>
           </div>
         </Alerta>
       ) : null}
 
-      {confirmandoEstado && cuenta ? (
-        <Alerta variante="info">
-          <div className="alerta__accion">
-            <span>
-              {cuenta.activo
-                ? '¿Desactivar esta cuenta? Dejará de estar activa, pero su historial se conservará.'
-                : '¿Reactivar esta cuenta? Volverá a estar disponible en el portafolio.'}
-            </span>
-            <div className="acciones-en-linea">
-              <Boton
-                variante="secundario"
-                onClick={() => setConfirmandoEstado(false)}
-                disabled={cambiandoEstado}
-              >
-                Cancelar
-              </Boton>
-              <Boton
-                variante={cuenta.activo ? 'peligro' : 'primario'}
-                onClick={() => cambiarEstado(!cuenta.activo)}
-                cargando={cambiandoEstado}
-              >
-                {cuenta.activo ? 'Sí, desactivar' : 'Sí, reactivar'}
-              </Boton>
-            </div>
-          </div>
-        </Alerta>
-      ) : null}
-
-      {errorEstado ? (
-        <Alerta variante="error">{errorEstado}</Alerta>
-      ) : null}
+      {errorEstado ? <Alerta variante="error">{errorEstado}</Alerta> : null}
 
       {cargando ? (
-        <section className="seccion" aria-hidden="true">
-          <div className="detalle detalle--esqueleto">
+        <FinancialCard
+          titulo="Detalle de la cuenta"
+          subtitulo="Cargando información de la cuenta…"
+        >
+          <div className="section-stack" aria-hidden="true">
             <Esqueleto className="esqueleto--titulo" />
             <Esqueleto className="esqueleto--linea" />
             <Esqueleto className="esqueleto--linea" />
           </div>
-        </section>
+        </FinancialCard>
       ) : noEncontrado ? (
-        <EstadoVacio
+        <EmptyState
           icono={<IconoVacio />}
           titulo="No encontramos esta cuenta"
           descripcion="Puede que ya no exista o que no tengas acceso a ella. Vuelve al portafolio para consultar sus cuentas."
           accion={
-            <Link className="boton boton--secundario" to={enlacePortafolio}>
+            <Link className="btn btn--secundario" to={enlacePortafolio}>
               Volver al portafolio
             </Link>
           }
         />
       ) : error ? (
-        <Alerta variante="error" className="alerta--bloque">
-          <div className="alerta__accion">
-            <span>{error}</span>
-            <Boton variante="secundario" onClick={recargar}>
-              <IconoRecargar />
-              Reintentar
-            </Boton>
-          </div>
-        </Alerta>
+        <ErrorState
+          mensaje={error}
+          titulo="No se pudo cargar la cuenta"
+          onReintentar={recargar}
+        />
       ) : cuenta ? (
-        <section className="seccion" aria-labelledby="titulo-detalle-cuenta">
-          <div className="seccion__cabecera">
-            <div>
-              <h2 id="titulo-detalle-cuenta">Detalle de la cuenta</h2>
-              <p>
-                Datos de identificación y estado. La referencia completa nunca
-                se devuelve por la API.
-              </p>
-            </div>
+        <FinancialCard
+          id="titulo-detalle-cuenta"
+          titulo="Detalle de la cuenta"
+          subtitulo="Datos de identificación y estado. La referencia completa nunca se devuelve por la API."
+          acciones={
             <Boton
               variante="secundario"
               onClick={recargar}
@@ -319,16 +292,18 @@ export function CuentaDetailPage() {
               <IconoRecargar />
               Actualizar
             </Boton>
-          </div>
-
-          <article className="detalle">
+          }
+        >
+          <div className="section-stack">
             <div className="detalle__cabecera">
               <span className="detalle__icono" aria-hidden="true">
                 <IconoCuenta />
               </span>
               <div className="detalle__titulo">
                 <h3>{cuenta.nombre}</h3>
-                <Insignia activo={cuenta.activo} />
+                <StatusBadge estado={cuenta.activo ? 'activo' : 'inactivo'}>
+                  {cuenta.activo ? 'Activa' : 'Inactiva'}
+                </StatusBadge>
               </div>
             </div>
 
@@ -382,8 +357,31 @@ export function CuentaDetailPage() {
                 <dd className="dato-id">{cuenta.id}</dd>
               </div>
             </dl>
-          </article>
-        </section>
+          </div>
+        </FinancialCard>
+      ) : null}
+
+      {cuenta ? (
+        <ConfirmationDialog
+          abierto={confirmandoEstado}
+          titulo={cuenta.activo ? 'Desactivar cuenta' : 'Reactivar cuenta'}
+          descripcion={
+            cuenta.activo
+              ? 'La cuenta dejará de estar activa, pero su historial se conservará. Puedes reactivarla más adelante.'
+              : 'La cuenta volverá a estar disponible en el portafolio y podrás usarla de nuevo.'
+          }
+          textoConfirmar={
+            cuenta.activo ? 'Sí, desactivar' : 'Sí, reactivar'
+          }
+          tono={cuenta.activo ? 'peligro' : 'primario'}
+          cargando={cambiandoEstado}
+          onConfirmar={() => cambiarEstado(!cuenta.activo)}
+          onCancelar={() => {
+            if (!cambiandoEstado) {
+              setConfirmandoEstado(false);
+            }
+          }}
+        />
       ) : null}
     </div>
   );

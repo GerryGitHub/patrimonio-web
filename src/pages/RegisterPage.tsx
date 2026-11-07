@@ -60,7 +60,7 @@ export function RegisterPage() {
   return (
     <AuthLayout
       titulo="Crea tu cuenta"
-      subtitulo="Empieza a organizar tus portafolios en minutos."
+      subtitulo="Empieza a organizar tu patrimonio en minutos."
     >
       {errorGeneral ? (
         <Alerta variante="error">{errorGeneral}</Alerta>

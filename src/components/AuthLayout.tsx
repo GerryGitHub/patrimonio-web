@@ -20,7 +20,7 @@ export function AuthLayout({
 }: AuthLayoutProps) {
   return (
     <div className="auth">
-      <aside className="auth__marca" aria-label="Patrimonio">
+      <aside className="auth__marca" aria-label="Patrimonio 360">
         <div className="auth__marca-contenido">
           <Logo to="/login" />
 
@@ -28,8 +28,8 @@ export function AuthLayout({
             <p className="eyebrow">Patrimonio personal</p>
             <h1>Una vista clara de todo lo que construyes.</h1>
             <p>
-              Portafolios, cuentas y acceso seguro en un solo lugar, sin ruido
-              y sin complicaciones.
+              Portafolios, activos y cuentas en un solo lugar. Información real,
+              sin ruido y con los cálculos en el servidor.
             </p>
           </div>
 
@@ -48,7 +48,7 @@ export function AuthLayout({
             </li>
           </ul>
 
-          <p className="auth__nota">MVP · Acceso privado</p>
+          <p className="auth__nota">Financial Atlas Blue · Acceso privado</p>
         </div>
       </aside>
 
@@ -64,7 +64,7 @@ export function AuthLayout({
           {children}
         </div>
         <p className="auth__legal">
-          <Link to="/login">Patrimonio</Link> · Gestión patrimonial
+          <Link to="/login">Patrimonio 360</Link> · Gestión patrimonial
         </p>
       </main>
     </div>

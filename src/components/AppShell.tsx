@@ -1,85 +1,51 @@
-import { useState, type ReactNode } from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
-import { useAuth } from '../auth/AuthContext';
-import { iniciales } from '../lib/format';
-import { Logo } from './Logo';
-import { IconoSalir } from './icons';
+import { useEffect, useState, type ReactNode } from 'react';
+import { useLocation } from 'react-router-dom';
+import { Header } from './Header';
+import { Sidebar } from './Sidebar';
 
+/**
+ * Estructura principal de la aplicación autenticada.
+ *
+ * <p>En escritorio usa navegación lateral fija. En tablet y móvil la
+ * navegación se convierte en un cajón superpuesto con cierre explícito, sin
+ * reducir la sidebar a iconos.</p>
+ */
 export function AppShell({ children }: { children: ReactNode }) {
-  const { usuario, cerrarSesion } = useAuth();
-  const navigate = useNavigate();
-  const [saliendo, setSaliendo] = useState(false);
+  const location = useLocation();
+  const [menuAbierto, setMenuAbierto] = useState(false);
 
-  async function salir() {
-    setSaliendo(true);
-    try {
-      await cerrarSesion();
-      navigate('/login', { replace: true });
-    } finally {
-      setSaliendo(false);
-    }
-  }
+  useEffect(() => {
+    setMenuAbierto(false);
+  }, [location.pathname]);
 
   return (
-    <div className="app">
-      <header className="cabecera">
-        <div className="contenedor cabecera__interior">
-          <Logo />
+    <div className="app-shell">
+      <Sidebar
+        abierto={menuAbierto}
+        onCerrar={() => setMenuAbierto(false)}
+      />
 
-          <nav className="cabecera__nav" aria-label="Navegación principal">
-            <NavLink
-              to="/"
-              end
-              className={({ isActive }) =>
-                `cabecera__enlace ${isActive ? 'cabecera__enlace--activo' : ''}`
-              }
-            >
-              Resumen
-            </NavLink>
-            <NavLink
-              to="/instituciones"
-              className={({ isActive }) =>
-                `cabecera__enlace ${isActive ? 'cabecera__enlace--activo' : ''}`
-              }
-            >
-              Instituciones
-            </NavLink>
-          </nav>
+      {menuAbierto ? (
+        <button
+          type="button"
+          className="sidebar__overlay"
+          onClick={() => setMenuAbierto(false)}
+          aria-label="Cerrar navegación"
+        />
+      ) : null}
 
-          <div className="cabecera__usuario">
-            <div className="usuario-chip" title={usuario?.email}>
-              <span className="avatar" aria-hidden="true">
-                {usuario ? iniciales(usuario.nombre) : '?'}
-              </span>
-              <span className="usuario-chip__datos">
-                <strong>{usuario?.nombre}</strong>
-                <small>{usuario?.email}</small>
-              </span>
-            </div>
-            <button
-              type="button"
-              className="boton boton--fantasma boton--icono"
-              onClick={salir}
-              disabled={saliendo}
-              aria-label="Cerrar sesión"
-            >
-              <IconoSalir />
-              <span className="solo-escritorio">
-                {saliendo ? 'Saliendo…' : 'Salir'}
-              </span>
-            </button>
+      <div className="app-shell__main">
+        <Header onAbrirMenu={() => setMenuAbierto(true)} />
+
+        <main className="app-main">{children}</main>
+
+        <footer className="pie">
+          <div className="pie__interior">
+            <span>Patrimonio 360 · Financial Atlas Blue</span>
+            <span>Los cálculos financieros se realizan en el backend.</span>
           </div>
-        </div>
-      </header>
-
-      <main className="contenedor app-main">{children}</main>
-
-      <footer className="pie">
-        <div className="contenedor pie__interior">
-          <span>Patrimonio · Gestión patrimonial</span>
-          <span>Sesión privada · MVP</span>
-        </div>
-      </footer>
+        </footer>
+      </div>
     </div>
   );
 }

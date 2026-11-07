@@ -16,6 +16,10 @@ import type {
   TipoCuenta,
 } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
+import { EmptyState } from '../components/EmptyState';
+import { ErrorState } from '../components/ErrorState';
+import { FinancialCard } from '../components/FinancialCard';
+import { PageHeader } from '../components/PageHeader';
 import {
   Alerta,
   Boton,
@@ -23,12 +27,10 @@ import {
   CampoSelect,
   CampoTextarea,
   Esqueleto,
-  EstadoVacio,
 } from '../components/ui';
 import {
   IconoCheck,
   IconoMas,
-  IconoRecargar,
   IconoVacio,
   IconoVolver,
 } from '../components/icons';
@@ -205,7 +207,9 @@ export function CuentaFormPage() {
           : await crearCuenta(portafolioId, datos);
 
       navigate(
-        `/portafolios/${encodeURIComponent(portafolioId)}/cuentas/${encodeURIComponent(guardada.id)}`,
+        `/activos/liquidez/${encodeURIComponent(
+          portafolioId,
+        )}/cuentas/${encodeURIComponent(guardada.id)}`,
         {
           replace: true,
           state: editando ? { actualizada: true } : { creada: true },
@@ -238,50 +242,47 @@ export function CuentaFormPage() {
       tiposCuenta.length === 0 ||
       monedas.length === 0);
 
-  const enlaceVolver = editando && cuentaId
-    ? `/portafolios/${encodeURIComponent(portafolioId)}/cuentas/${encodeURIComponent(cuentaId)}`
-    : `/portafolios/${encodeURIComponent(portafolioId)}`;
+  const enlaceVolver =
+    editando && cuentaId
+      ? `/activos/liquidez/${encodeURIComponent(
+          portafolioId,
+        )}/cuentas/${encodeURIComponent(cuentaId)}`
+      : `/activos/liquidez/${encodeURIComponent(portafolioId)}`;
 
   return (
-    <div className="pagina">
+    <div className="page">
       <Link className="volver" to={enlaceVolver}>
         <IconoVolver />
         {editando ? 'Volver al detalle' : 'Volver al portafolio'}
       </Link>
 
-      <header className="pagina__cabecera">
-        <div className="pagina__texto">
-          <p className="eyebrow">
-            {editando ? 'Editar cuenta' : 'Nueva cuenta'}
-          </p>
-          <h1>
-            {cargando
-              ? 'Cargando formulario…'
-              : noEncontrado
-                ? 'Cuenta no encontrada'
-                : editando
-                  ? `Editar ${cuenta?.nombre ?? 'cuenta'}`
-                  : 'Registrar cuenta financiera'}
-          </h1>
-          <p className="pagina__subtitulo">
-            {portafolio
-              ? `Portafolio ${portafolio.nombre}. La referencia bancaria solo se mostrará enmascarada.`
-              : 'Completa los datos de la cuenta financiera.'}
-          </p>
-        </div>
-      </header>
+      <PageHeader
+        eyebrow={editando ? 'Editar cuenta' : 'Nueva cuenta'}
+        titulo={
+          cargando
+            ? 'Cargando formulario…'
+            : noEncontrado
+              ? 'Cuenta no encontrada'
+              : editando
+                ? `Editar ${cuenta?.nombre ?? 'cuenta'}`
+                : 'Registrar cuenta financiera'
+        }
+        descripcion={
+          portafolio
+            ? `Portafolio ${portafolio.nombre}. La referencia bancaria solo se mostrará enmascarada.`
+            : 'Completa los datos de la cuenta financiera.'
+        }
+      />
 
       {cargando ? (
-        <section className="seccion" aria-hidden="true">
-          <div className="panel-formulario">
-            <Esqueleto className="esqueleto--titulo" />
-            <Esqueleto className="esqueleto--linea" />
-            <Esqueleto className="esqueleto--linea" />
-            <Esqueleto className="esqueleto--linea" />
-          </div>
-        </section>
+        <div className="panel-formulario" aria-hidden="true">
+          <Esqueleto className="esqueleto--titulo" />
+          <Esqueleto className="esqueleto--linea" />
+          <Esqueleto className="esqueleto--linea" />
+          <Esqueleto className="esqueleto--linea" />
+        </div>
       ) : noEncontrado ? (
-        <EstadoVacio
+        <EmptyState
           icono={<IconoVacio />}
           titulo={
             editando
@@ -291,43 +292,31 @@ export function CuentaFormPage() {
           descripcion="Puede que ya no exista o que no tengas acceso a él. Vuelve al portafolio para elegir otra opción."
           accion={
             <Link
-              className="boton boton--secundario"
-              to={`/portafolios/${encodeURIComponent(portafolioId)}`}
+              className="btn btn--secundario"
+              to={`/activos/liquidez/${encodeURIComponent(portafolioId)}`}
             >
               Volver al portafolio
             </Link>
           }
         />
       ) : errorCarga ? (
-        <Alerta variante="error" className="alerta--bloque">
-          <div className="alerta__accion">
-            <span>{errorCarga}</span>
-            <Boton variante="secundario" onClick={recargar}>
-              <IconoRecargar />
-              Reintentar
-            </Boton>
-          </div>
-        </Alerta>
+        <ErrorState
+          mensaje={errorCarga}
+          titulo="No se pudo cargar el formulario"
+          onReintentar={recargar}
+        />
       ) : portafolio ? (
-        <section
-          className="panel-formulario"
-          aria-labelledby="titulo-formulario-cuenta"
+        <FinancialCard
+          id="titulo-formulario-cuenta"
+          titulo={editando ? 'Actualiza la cuenta' : 'Datos de la cuenta'}
+          subtitulo="La institución, el tipo y la moneda deben existir y estar activos. El estado se cambia desde el detalle de la cuenta."
+          acciones={
+            <span className="dato-chip">
+              <strong>{portafolio.monedaBase.codigo}</strong>
+              {portafolio.monedaBase.nombre}
+            </span>
+          }
         >
-          <div className="panel-formulario__cabecera">
-            <div>
-              <p className="eyebrow">
-                {editando ? 'Datos editables' : 'Alta de cuenta'}
-              </p>
-              <h2 id="titulo-formulario-cuenta">
-                {editando ? 'Actualiza la cuenta' : 'Datos de la cuenta'}
-              </h2>
-              <p>
-                La institución, el tipo y la moneda deben existir y estar
-                activos. El estado se cambia desde el detalle de la cuenta.
-              </p>
-            </div>
-          </div>
-
           {errorEnvio ? (
             <Alerta variante="error">{errorEnvio}</Alerta>
           ) : null}
@@ -475,7 +464,7 @@ export function CuentaFormPage() {
               </Boton>
             </div>
           </form>
-        </section>
+        </FinancialCard>
       ) : null}
     </div>
   );

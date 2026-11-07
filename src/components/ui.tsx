@@ -13,9 +13,12 @@ import {
   IconoOjo,
   IconoOjoCerrado,
 } from './icons';
+import { EmptyState } from './EmptyState';
+import { FormField } from './FormField';
+import { StatusBadge } from './StatusBadge';
 
 interface BotonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  variante?: 'primario' | 'secundario' | 'fantasma' | 'peligro';
+  variante?: 'primario' | 'secundario' | 'fantasma' | 'peligro' | 'exito';
   cargando?: boolean;
   anchoCompleto?: boolean;
 }
@@ -46,7 +49,7 @@ export function Boton({
       {...props}
     >
       {cargando ? <span className="boton__spinner" aria-hidden="true" /> : null}
-      <span>{children}</span>
+      {children}
     </button>
   );
 }
@@ -76,32 +79,25 @@ export function Campo({
       : undefined;
 
   return (
-    <div
-      className={`campo ${error ? 'campo--error' : ''} ${className ?? ''}`.trim()}
+    <FormField
+      etiqueta={etiqueta}
+      htmlFor={inputId}
+      error={error}
+      ayuda={ayuda}
+      requerido={props.required}
+      className={className}
     >
-      <label className="campo__etiqueta" htmlFor={inputId}>
-        {etiqueta}
-      </label>
-      <div className="campo__control-envoltura">
+      <div className="form-field__control-wrap">
         <input
           id={inputId}
-          className="campo__control"
+          className="form-field__control"
           aria-invalid={error ? true : undefined}
           aria-describedby={descripcionId}
           {...props}
         />
         {sufijo}
       </div>
-      {error ? (
-        <p className="campo__error" id={`${inputId}-error`} role="alert">
-          {error}
-        </p>
-      ) : ayuda ? (
-        <p className="campo__ayuda" id={`${inputId}-ayuda`}>
-          {ayuda}
-        </p>
-      ) : null}
-    </div>
+    </FormField>
   );
 }
 
@@ -129,29 +125,22 @@ export function CampoTextarea({
       : undefined;
 
   return (
-    <div
-      className={`campo ${error ? 'campo--error' : ''} ${className ?? ''}`.trim()}
+    <FormField
+      etiqueta={etiqueta}
+      htmlFor={inputId}
+      error={error}
+      ayuda={ayuda}
+      requerido={props.required}
+      className={className}
     >
-      <label className="campo__etiqueta" htmlFor={inputId}>
-        {etiqueta}
-      </label>
       <textarea
         id={inputId}
-        className="campo__control campo__control--textarea"
+        className="form-field__control form-field__control--textarea"
         aria-invalid={error ? true : undefined}
         aria-describedby={descripcionId}
         {...props}
       />
-      {error ? (
-        <p className="campo__error" id={`${inputId}-error`} role="alert">
-          {error}
-        </p>
-      ) : ayuda ? (
-        <p className="campo__ayuda" id={`${inputId}-ayuda`}>
-          {ayuda}
-        </p>
-      ) : null}
-    </div>
+    </FormField>
   );
 }
 
@@ -181,31 +170,24 @@ export function CampoSelect({
       : undefined;
 
   return (
-    <div
-      className={`campo ${error ? 'campo--error' : ''} ${className ?? ''}`.trim()}
+    <FormField
+      etiqueta={etiqueta}
+      htmlFor={inputId}
+      error={error}
+      ayuda={ayuda}
+      requerido={props.required}
+      className={className}
     >
-      <label className="campo__etiqueta" htmlFor={inputId}>
-        {etiqueta}
-      </label>
       <select
         id={inputId}
-        className="campo__control campo__control--select"
+        className="form-field__control form-field__control--select"
         aria-invalid={error ? true : undefined}
         aria-describedby={descripcionId}
         {...props}
       >
         {children}
       </select>
-      {error ? (
-        <p className="campo__error" id={`${inputId}-error`} role="alert">
-          {error}
-        </p>
-      ) : ayuda ? (
-        <p className="campo__ayuda" id={`${inputId}-ayuda`}>
-          {ayuda}
-        </p>
-      ) : null}
-    </div>
+    </FormField>
   );
 }
 
@@ -221,7 +203,7 @@ export function CampoPassword(
       sufijo={
         <button
           type="button"
-          className="campo__ojo"
+          className="form-field__suffix"
           onClick={() => setVisible((valor) => !valor)}
           aria-label={visible ? 'Ocultar contraseña' : 'Mostrar contraseña'}
           title={visible ? 'Ocultar contraseña' : 'Mostrar contraseña'}
@@ -264,6 +246,7 @@ interface EstadoVacioProps {
   accion?: ReactNode;
 }
 
+/** Compatibilidad con el nombre anterior de `EmptyState`. */
 export function EstadoVacio({
   icono,
   titulo,
@@ -271,14 +254,12 @@ export function EstadoVacio({
   accion,
 }: EstadoVacioProps) {
   return (
-    <div className="estado-vacio">
-      <span className="estado-vacio__icono" aria-hidden="true">
-        {icono}
-      </span>
-      <h3>{titulo}</h3>
-      <p>{descripcion}</p>
-      {accion ? <div className="estado-vacio__accion">{accion}</div> : null}
-    </div>
+    <EmptyState
+      icono={icono}
+      titulo={titulo}
+      descripcion={descripcion}
+      accion={accion}
+    />
   );
 }
 
@@ -293,13 +274,8 @@ export function Esqueleto({ className }: { className?: string }) {
 
 export function Insignia({ activo }: { activo: boolean }) {
   return (
-    <span
-      className={`insignia ${
-        activo ? 'insignia--activa' : 'insignia--inactiva'
-      }`}
-    >
-      <span className="insignia__punto" aria-hidden="true" />
+    <StatusBadge estado={activo ? 'activo' : 'inactivo'}>
       {activo ? 'Activa' : 'Inactiva'}
-    </span>
+    </StatusBadge>
   );
 }

@@ -7,14 +7,14 @@ import type {
 } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { CrearInstitucionForm } from '../components/CrearInstitucionForm';
-import {
-  Alerta,
-  Boton,
-  CampoSelect,
-  EstadoVacio,
-  Esqueleto,
-  Insignia,
-} from '../components/ui';
+import { DataTable, type ColumnaTabla } from '../components/DataTable';
+import { EmptyState } from '../components/EmptyState';
+import { ErrorState } from '../components/ErrorState';
+import { FilterBar } from '../components/FilterBar';
+import { FinancialCard } from '../components/FinancialCard';
+import { PageHeader } from '../components/PageHeader';
+import { StatusBadge } from '../components/StatusBadge';
+import { Alerta, Boton, CampoSelect, Esqueleto } from '../components/ui';
 import {
   IconoInstitucion,
   IconoMas,
@@ -95,33 +95,114 @@ export function InstitucionesPage() {
     recargar();
   }
 
+  function limpiarFiltros() {
+    setTipo('');
+    setEstado('todos');
+  }
+
   const hayFiltros = tipo !== '' || estado !== 'todos';
 
-  return (
-    <div className="pagina">
-      <header className="pagina__cabecera">
-        <div className="pagina__texto">
-          <p className="eyebrow">Catálogo</p>
-          <h1>Instituciones financieras</h1>
-          <p className="pagina__subtitulo">
-            Bancos, SOFIPOs, casas de bolsa, exchanges y otras instituciones
-            reutilizables en tus cuentas.
-          </p>
-        </div>
+  const columnas: ColumnaTabla<Institucion>[] = [
+    {
+      clave: 'institucion',
+      encabezado: 'Institución',
+      render: (institucion) => (
+        <span className="data-table__celda-principal">
+          <span>
+            <strong>{institucion.nombre}</strong>
+            <small>{institucion.pais ?? 'País no registrado'}</small>
+          </span>
+        </span>
+      ),
+    },
+    {
+      clave: 'categoria',
+      encabezado: 'Categoría',
+      render: (institucion) => (
+        <span className="etiqueta-categoria">
+          {etiquetaTipoInstitucion(institucion.tipo)}
+        </span>
+      ),
+    },
+    {
+      clave: 'sitio',
+      encabezado: 'Sitio web',
+      ocultarEnMovil: true,
+      render: (institucion) => {
+        const sitio = urlSegura(institucion.sitioWeb);
+        if (!sitio) {
+          return (
+            <span className="institucion__sin-sitio">Sin sitio web</span>
+          );
+        }
+        return (
+          <a
+            className="institucion__sitio"
+            href={sitio}
+            target="_blank"
+            rel="noreferrer noopener"
+          >
+            {institucion.sitioWeb}
+          </a>
+        );
+      },
+    },
+    {
+      clave: 'estado',
+      encabezado: 'Estado',
+      render: (institucion) => (
+        <StatusBadge estado={institucion.activo ? 'activo' : 'inactivo'}>
+          {institucion.activo ? 'Activa' : 'Inactiva'}
+        </StatusBadge>
+      ),
+    },
+  ];
 
-        <div className="pagina__meta" aria-live="polite">
-          {cargando ? (
-            <span className="dato-chip">
-              <Esqueleto className="esqueleto--dato" />
-            </span>
-          ) : (
+  const esqueletoTabla = (
+    <div className="instituciones" aria-hidden="true">
+      {[0, 1, 2].map((indice) => (
+        <div className="institucion institucion--esqueleto" key={indice}>
+          <Esqueleto className="esqueleto--icono" />
+          <Esqueleto className="esqueleto--titulo" />
+          <Esqueleto className="esqueleto--linea" />
+        </div>
+      ))}
+    </div>
+  );
+
+  return (
+    <div className="page">
+      <PageHeader
+        eyebrow="Configuración · Catálogos"
+        titulo="Instituciones financieras"
+        descripcion="Bancos, SOFIPOs, casas de bolsa, exchanges y otras instituciones reutilizables en tus cuentas."
+        acciones={
+          <>
+            {!mostrandoFormulario ? (
+              <Boton onClick={() => setMostrandoFormulario(true)}>
+                <IconoMas />
+                Nueva institución
+              </Boton>
+            ) : null}
+            <Boton
+              variante="secundario"
+              onClick={recargar}
+              aria-label="Actualizar instituciones"
+            >
+              <IconoRecargar />
+              Actualizar
+            </Boton>
+          </>
+        }
+        meta={
+          cargando ? null : (
             <span className="dato-chip">
               <strong>{instituciones.length}</strong>
               {instituciones.length === 1 ? 'institución' : 'instituciones'}
             </span>
-          )}
-        </div>
-      </header>
+          )
+        }
+      />
 
       {confirmacion ? (
         <Alerta variante="exito">
@@ -146,175 +227,96 @@ export function InstitucionesPage() {
         />
       ) : null}
 
-      <section className="seccion" aria-labelledby="titulo-instituciones">
-        <div className="seccion__cabecera">
-          <div>
-            <h2 id="titulo-instituciones">Catálogo compartido</h2>
-            <p>
-              Filtra por categoría o estado. Las instituciones inactivas no se
-              pueden asociar a cuentas nuevas.
-            </p>
-          </div>
-          <div className="seccion__acciones">
-            {!mostrandoFormulario ? (
-              <Boton onClick={() => setMostrandoFormulario(true)}>
-                <IconoMas />
-                Nueva institución
-              </Boton>
-            ) : null}
-            <Boton
-              variante="secundario"
-              onClick={recargar}
-              aria-label="Actualizar instituciones"
-            >
-              <IconoRecargar />
-              Actualizar
-            </Boton>
-          </div>
-        </div>
-
-        <div className="filtros">
-          <CampoSelect
-            etiqueta="Categoría"
-            value={tipo}
-            onChange={(evento) =>
-              setTipo(evento.target.value as TipoInstitucion | '')
-            }
-          >
-            <option value="">Todas las categorías</option>
-            {TIPOS_INSTITUCION.map((opcion) => (
-              <option key={opcion.valor} value={opcion.valor}>
-                {opcion.etiqueta}
-              </option>
-            ))}
-          </CampoSelect>
-
-          <CampoSelect
-            etiqueta="Estado"
-            value={estado}
-            onChange={(evento) =>
-              setEstado(evento.target.value as FiltroEstado)
-            }
-          >
-            <option value="todos">Todos los estados</option>
-            <option value="activos">Solo activas</option>
-            <option value="inactivos">Solo inactivas</option>
-          </CampoSelect>
-
-          {hayFiltros ? (
-            <Boton
-              variante="fantasma"
-              onClick={() => {
-                setTipo('');
-                setEstado('todos');
-              }}
-            >
-              Limpiar filtros
-            </Boton>
-          ) : null}
-        </div>
-
-        {cargando ? (
-          <div className="instituciones" aria-hidden="true">
-            {[0, 1, 2].map((indice) => (
-              <div
-                className="institucion institucion--esqueleto"
-                key={indice}
-              >
-                <Esqueleto className="esqueleto--icono" />
-                <Esqueleto className="esqueleto--titulo" />
-                <Esqueleto className="esqueleto--linea" />
-              </div>
-            ))}
-          </div>
-        ) : error ? (
-          <Alerta variante="error" className="alerta--bloque">
-            <div className="alerta__accion">
-              <span>{error}</span>
-              <Boton variante="secundario" onClick={recargar}>
-                Reintentar
-              </Boton>
-            </div>
-          </Alerta>
-        ) : instituciones.length === 0 ? (
-          hayFiltros ? (
-            <EstadoVacio
-              icono={<IconoVacio />}
-              titulo="No hay instituciones con estos filtros"
-              descripcion="Prueba con otra categoría o estado, o limpia los filtros para ver todo el catálogo."
-              accion={
-                <Boton
-                  variante="secundario"
-                  onClick={() => {
-                    setTipo('');
-                    setEstado('todos');
-                  }}
-                >
+      <FinancialCard
+        titulo="Catálogo compartido"
+        subtitulo="Filtra por categoría o estado. Las instituciones inactivas no se pueden asociar a cuentas nuevas."
+        acciones={
+          <IconoInstitucion aria-hidden="true" />
+        }
+      >
+        <div className="section-stack">
+          <FilterBar
+            acciones={
+              hayFiltros ? (
+                <Boton variante="fantasma" onClick={limpiarFiltros}>
                   Limpiar filtros
                 </Boton>
+              ) : null
+            }
+          >
+            <CampoSelect
+              etiqueta="Categoría"
+              value={tipo}
+              onChange={(evento) =>
+                setTipo(evento.target.value as TipoInstitucion | '')
               }
+            >
+              <option value="">Todas las categorías</option>
+              {TIPOS_INSTITUCION.map((opcion) => (
+                <option key={opcion.valor} value={opcion.valor}>
+                  {opcion.etiqueta}
+                </option>
+              ))}
+            </CampoSelect>
+
+            <CampoSelect
+              etiqueta="Estado"
+              value={estado}
+              onChange={(evento) =>
+                setEstado(evento.target.value as FiltroEstado)
+              }
+            >
+              <option value="todos">Todos los estados</option>
+              <option value="activos">Solo activas</option>
+              <option value="inactivos">Solo inactivas</option>
+            </CampoSelect>
+          </FilterBar>
+
+          {error ? (
+            <ErrorState
+              mensaje={error}
+              titulo="No se pudieron consultar las instituciones"
+              onReintentar={recargar}
             />
           ) : (
-            <EstadoVacio
-              icono={<IconoVacio />}
-              titulo="Todavía no hay instituciones"
-              descripcion="Registra la primera institución para poder asociarla a tus cuentas financieras."
-              accion={
-                <Boton onClick={() => setMostrandoFormulario(true)}>
-                  <IconoMas />
-                  Registrar institución
-                </Boton>
+            <DataTable
+              columnas={columnas}
+              filas={instituciones}
+              obtenerClave={(institucion) => institucion.id}
+              cargando={cargando}
+              esqueleto={esqueletoTabla}
+              vacio={
+                hayFiltros ? (
+                  <EmptyState
+                    compacta
+                    icono={<IconoVacio />}
+                    titulo="No hay instituciones con estos filtros"
+                    descripcion="Prueba con otra categoría o estado, o limpia los filtros para ver todo el catálogo."
+                    accion={
+                      <Boton variante="secundario" onClick={limpiarFiltros}>
+                        Limpiar filtros
+                      </Boton>
+                    }
+                  />
+                ) : (
+                  <EmptyState
+                    compacta
+                    icono={<IconoVacio />}
+                    titulo="Todavía no hay instituciones"
+                    descripcion="Registra la primera institución para poder asociarla a tus cuentas financieras."
+                    accion={
+                      <Boton onClick={() => setMostrandoFormulario(true)}>
+                        <IconoMas />
+                        Registrar institución
+                      </Boton>
+                    }
+                  />
+                )
               }
             />
-          )
-        ) : (
-          <div className="instituciones">
-            {instituciones.map((institucion) => {
-              const sitio = urlSegura(institucion.sitioWeb);
-              return (
-                <article className="institucion" key={institucion.id}>
-                  <span className="institucion__icono" aria-hidden="true">
-                    <IconoInstitucion />
-                  </span>
-
-                  <div className="institucion__cuerpo">
-                    <div className="institucion__encabezado">
-                      <h3>{institucion.nombre}</h3>
-                      <Insignia activo={institucion.activo} />
-                    </div>
-
-                    <div className="institucion__meta">
-                      <span className="etiqueta-categoria">
-                        {etiquetaTipoInstitucion(institucion.tipo)}
-                      </span>
-                      {institucion.pais ? (
-                        <span className="institucion__pais">
-                          {institucion.pais}
-                        </span>
-                      ) : null}
-                    </div>
-
-                    {sitio ? (
-                      <a
-                        className="institucion__sitio"
-                        href={sitio}
-                        target="_blank"
-                        rel="noreferrer noopener"
-                      >
-                        {institucion.sitioWeb}
-                      </a>
-                    ) : (
-                      <span className="institucion__sin-sitio">
-                        Sin sitio web
-                      </span>
-                    )}
-                  </div>
-                </article>
-              );
-            })}
-          </div>
-        )}
-      </section>
+          )}
+        </div>
+      </FinancialCard>
     </div>
   );
 }

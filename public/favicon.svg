@@ -1,5 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Patrimonio">
-  <rect width="64" height="64" rx="14" fill="#0b1f1a" />
-  <path d="M20 46V18h13.5c7.2 0 12 4.2 12 10.8S40.7 39.6 33.5 39.6H27V46h-7Zm7-12.8h5.8c3.4 0 5.5-1.7 5.5-4.4s-2.1-4.4-5.5-4.4H27v8.8Z" fill="#f4f1ea" />
-  <circle cx="47" cy="45" r="4" fill="#c8a45c" />
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Patrimonio 360">
+  <rect width="64" height="64" rx="14" fill="#192B45" />
+  <path d="M20 46V18h13.5c7.2 0 12 4.2 12 10.8S40.7 39.6 33.5 39.6H27V46h-7Zm7-12.8h5.8c3.4 0 5.5-1.7 5.5-4.4s-2.1-4.4-5.5-4.4H27v8.8Z" fill="#FFFFFF" />
+  <circle cx="47" cy="45" r="4" fill="#65A9D8" />
 </svg>

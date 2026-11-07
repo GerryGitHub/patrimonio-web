@@ -70,7 +70,7 @@ export function LoginPage() {
   return (
     <AuthLayout
       titulo="Inicia sesión"
-      subtitulo="Accede a tus portafolios y cuentas."
+      subtitulo="Accede a tus portafolios, activos y cuentas."
     >
       {aviso ? <Alerta variante="exito">{aviso}</Alerta> : null}
 

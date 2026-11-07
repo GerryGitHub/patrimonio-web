@@ -12,17 +12,17 @@ import type {
   TipoCuenta,
 } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
-import {
-  Alerta,
-  Boton,
-  CampoSelect,
-  EstadoVacio,
-  Esqueleto,
-  Insignia,
-} from '../components/ui';
+import { DataTable, type ColumnaTabla } from '../components/DataTable';
+import { EmptyState } from '../components/EmptyState';
+import { ErrorState } from '../components/ErrorState';
+import { FilterBar } from '../components/FilterBar';
+import { FinancialCard } from '../components/FinancialCard';
+import { MetricCard } from '../components/MetricCard';
+import { PageHeader } from '../components/PageHeader';
+import { StatusBadge } from '../components/StatusBadge';
+import { Boton, CampoSelect, Esqueleto } from '../components/ui';
 import {
   IconoCuenta,
-  IconoFlecha,
   IconoInstitucion,
   IconoMas,
   IconoMoneda,
@@ -36,12 +36,14 @@ import {
   mensajeDeError,
 } from '../lib/errors';
 import { formatearFecha } from '../lib/format';
+import { usePortafolios } from '../portfolio/PortfolioContext';
 
 type FiltroEstado = 'todos' | 'activos' | 'inactivos';
 
 export function PortfolioPage() {
   const { portafolioId = '' } = useParams();
   const { marcarSesionExpirada } = useAuth();
+  const { seleccionar, revision } = usePortafolios();
 
   const [portafolio, setPortafolio] = useState<Portafolio | null>(null);
   const [monedas, setMonedas] = useState<Moneda[]>([]);
@@ -96,6 +98,7 @@ export function PortfolioPage() {
         }
 
         setPortafolio(encontrado);
+        seleccionar(encontrado.id);
       } catch (fallo) {
         if (cancelado) {
           return;
@@ -121,7 +124,7 @@ export function PortfolioPage() {
     return () => {
       cancelado = true;
     };
-  }, [portafolioId, intento, marcarSesionExpirada]);
+  }, [portafolioId, intento, marcarSesionExpirada, seleccionar]);
 
   useEffect(() => {
     if (cargandoInicial || noEncontrado) {
@@ -181,6 +184,7 @@ export function PortfolioPage() {
     filtroTipo,
     filtroEstado,
     intento,
+    revision,
     marcarSesionExpirada,
   ]);
 
@@ -208,358 +212,366 @@ export function PortfolioPage() {
     setFiltroEstado('todos');
   }
 
+  const columnas: ColumnaTabla<CuentaFinanciera>[] = [
+    {
+      clave: 'cuenta',
+      encabezado: 'Cuenta',
+      render: (cuenta) => (
+        <Link
+          className="data-table__celda-principal"
+          to={`/activos/liquidez/${encodeURIComponent(
+            portafolioId,
+          )}/cuentas/${encodeURIComponent(cuenta.id)}`}
+          aria-label={`Ver el detalle de la cuenta ${cuenta.nombre}`}
+        >
+          <span>
+            <strong>{cuenta.nombre}</strong>
+            <small>{cuenta.numeroCuenta ?? 'Sin número registrado'}</small>
+          </span>
+        </Link>
+      ),
+    },
+    {
+      clave: 'institucion',
+      encabezado: 'Institución',
+      ocultarEnMovil: true,
+      render: (cuenta) =>
+        institucionesPorId.get(cuenta.institucionId)?.nombre ?? 'No disponible',
+    },
+    {
+      clave: 'tipo',
+      encabezado: 'Tipo',
+      ocultarEnMovil: true,
+      render: (cuenta) =>
+        tiposPorId.get(cuenta.tipoCuentaId)?.nombre ?? 'No disponible',
+    },
+    {
+      clave: 'moneda',
+      encabezado: 'Moneda',
+      render: (cuenta) => (
+        <span className="moneda-chip">
+          {monedasPorId.get(cuenta.monedaId)?.codigo ?? '—'}
+        </span>
+      ),
+    },
+    {
+      clave: 'apertura',
+      encabezado: 'Apertura',
+      ocultarEnMovil: true,
+      render: (cuenta) => formatearFecha(cuenta.fechaApertura),
+    },
+    {
+      clave: 'estado',
+      encabezado: 'Estado',
+      render: (cuenta) => (
+        <StatusBadge estado={cuenta.activo ? 'activo' : 'inactivo'}>
+          {cuenta.activo ? 'Activa' : 'Inactiva'}
+        </StatusBadge>
+      ),
+    },
+    {
+      clave: 'acciones',
+      encabezado: 'Acciones',
+      alineacion: 'derecha',
+      render: (cuenta) => (
+        <Link
+          className="btn btn--fantasma btn--sm"
+          to={`/activos/liquidez/${encodeURIComponent(
+            portafolioId,
+          )}/cuentas/${encodeURIComponent(cuenta.id)}`}
+        >
+          Ver
+        </Link>
+      ),
+    },
+  ];
+
+  const esqueletoTabla = (
+    <div className="cuentas" aria-hidden="true">
+      {[0, 1, 2].map((indice) => (
+        <div className="cuenta cuenta--esqueleto" key={indice}>
+          <Esqueleto className="esqueleto--icono" />
+          <Esqueleto className="esqueleto--titulo" />
+          <Esqueleto className="esqueleto--linea" />
+        </div>
+      ))}
+    </div>
+  );
+
   return (
-    <div className="pagina">
-      <Link
-        className="volver"
-        to="/"
-        state={{ seleccionado: portafolioId }}
-      >
+    <div className="page">
+      <Link className="volver" to="/activos/liquidez">
         <IconoVolver />
-        Volver al resumen
+        Volver a Liquidez y cuentas
       </Link>
 
-      <header className="pagina__cabecera">
-        <div className="pagina__texto">
-          <p className="eyebrow">Portafolio seleccionado</p>
-          <h1>
-            {cargandoInicial
-              ? 'Cargando portafolio…'
-              : noEncontrado
-                ? 'Portafolio no encontrado'
-                : nombre}
-          </h1>
-          <p className="pagina__subtitulo">
-            {noEncontrado
-              ? 'Puede que ya no exista o que no tengas acceso a él.'
-              : 'Información general, moneda base y cuentas financieras asociadas.'}
-          </p>
-        </div>
-
-        <div className="pagina__meta" aria-live="polite">
-          {cargandoInicial ? (
-            <span className="dato-chip">
-              <Esqueleto className="esqueleto--dato" />
-            </span>
-          ) : errorInicial || noEncontrado ? null : (
+      <PageHeader
+        eyebrow="Mis activos · Liquidez y cuentas"
+        titulo={
+          cargandoInicial
+            ? 'Cargando portafolio…'
+            : noEncontrado
+              ? 'Portafolio no encontrado'
+              : nombre
+        }
+        descripcion={
+          noEncontrado
+            ? 'Puede que ya no exista o que no tengas acceso a él.'
+            : 'Información general, moneda base y cuentas financieras asociadas.'
+        }
+        acciones={
+          noEncontrado || cargandoInicial ? null : (
+            <>
+              <Link
+                className="btn btn--secundario"
+                to="/configuracion/instituciones"
+              >
+                <IconoInstitucion />
+                Instituciones
+              </Link>
+              <Link
+                className="btn btn--primario"
+                to={`/activos/liquidez/${encodeURIComponent(
+                  portafolioId,
+                )}/cuentas/nueva`}
+              >
+                <IconoMas />
+                Nueva cuenta
+              </Link>
+              <Boton
+                variante="secundario"
+                onClick={recargar}
+                aria-label="Actualizar portafolio"
+              >
+                <IconoRecargar />
+                Actualizar
+              </Boton>
+            </>
+          )
+        }
+        meta={
+          cargandoInicial || errorInicial || noEncontrado ? null : (
             <span className="dato-chip">
               <strong>{cuentas.length}</strong>
               {cuentas.length === 1 ? 'cuenta' : 'cuentas'}
             </span>
-          )}
-        </div>
-      </header>
+          )
+        }
+      />
 
       {cargandoInicial ? (
         <>
-          <section className="seccion" aria-hidden="true">
-            <div className="detalle detalle--esqueleto">
-              <Esqueleto className="esqueleto--titulo" />
-              <Esqueleto className="esqueleto--linea" />
-              <Esqueleto className="esqueleto--linea" />
-            </div>
-          </section>
-          <section className="seccion" aria-hidden="true">
-            <div className="cuentas">
-              {[0, 1].map((indice) => (
-                <div className="cuenta cuenta--esqueleto" key={indice}>
-                  <Esqueleto className="esqueleto--icono" />
-                  <Esqueleto className="esqueleto--titulo" />
-                  <Esqueleto className="esqueleto--linea" />
-                </div>
-              ))}
-            </div>
-          </section>
+          <div className="detalle detalle--esqueleto" aria-hidden="true">
+            <Esqueleto className="esqueleto--titulo" />
+            <Esqueleto className="esqueleto--linea" />
+            <Esqueleto className="esqueleto--linea" />
+          </div>
+          <div className="cuentas" aria-hidden="true">
+            {[0, 1].map((indice) => (
+              <div className="cuenta cuenta--esqueleto" key={indice}>
+                <Esqueleto className="esqueleto--icono" />
+                <Esqueleto className="esqueleto--titulo" />
+                <Esqueleto className="esqueleto--linea" />
+              </div>
+            ))}
+          </div>
         </>
       ) : noEncontrado ? (
-        <EstadoVacio
+        <EmptyState
           icono={<IconoVacio />}
           titulo="No encontramos este portafolio"
-          descripcion="Comprueba que sigues teniendo acceso o vuelve al resumen para elegir otro portafolio."
+          descripcion="Comprueba que sigues teniendo acceso o vuelve a Liquidez y cuentas para elegir otro portafolio."
           accion={
-            <Link className="boton boton--secundario" to="/">
-              Volver al resumen
+            <Link className="btn btn--secundario" to="/activos/liquidez">
+              Volver a Liquidez y cuentas
             </Link>
           }
         />
       ) : errorInicial ? (
-        <Alerta variante="error" className="alerta--bloque">
-          <div className="alerta__accion">
-            <span>{errorInicial}</span>
-            <Boton variante="secundario" onClick={recargar}>
-              Reintentar
-            </Boton>
-          </div>
-        </Alerta>
+        <ErrorState
+          mensaje={errorInicial}
+          titulo="No se pudo cargar el portafolio"
+          onReintentar={recargar}
+        />
       ) : portafolio ? (
         <>
-          <section className="seccion" aria-labelledby="titulo-general">
-            <div className="seccion__cabecera">
-              <div>
-                <h2 id="titulo-general">Información general</h2>
-                <p>Datos de identificación y valoración del portafolio.</p>
+          <FinancialCard
+            titulo="Información general"
+            subtitulo="Datos de identificación y moneda base del portafolio."
+          >
+            <div className="detalle__cabecera">
+              <span className="detalle__icono" aria-hidden="true">
+                <IconoMoneda />
+              </span>
+              <div className="detalle__titulo">
+                <h3>{portafolio.nombre}</h3>
+                <StatusBadge estado={portafolio.activo ? 'activo' : 'inactivo'}>
+                  {portafolio.activo ? 'Activo' : 'Inactivo'}
+                </StatusBadge>
               </div>
             </div>
 
-            <article className="detalle">
-              <div className="detalle__cabecera">
-                <span className="detalle__icono" aria-hidden="true">
-                  <IconoMoneda />
-                </span>
-                <div className="detalle__titulo">
-                  <h3>{portafolio.nombre}</h3>
-                  <Insignia activo={portafolio.activo} />
-                </div>
-              </div>
+            <p className="detalle__descripcion">
+              {portafolio.descripcion ?? 'Sin descripción.'}
+            </p>
 
-              <p className="detalle__descripcion">
-                {portafolio.descripcion ?? 'Sin descripción.'}
-              </p>
-
-              <dl className="detalle__datos">
-                <div>
-                  <dt>Moneda base</dt>
-                  <dd>
-                    {monedaBase
-                      ? `${monedaBase.codigo} · ${monedaBase.nombre}`
-                      : 'No disponible'}
-                  </dd>
-                </div>
-                <div>
-                  <dt>Símbolo</dt>
-                  <dd>{monedaBase?.simbolo ?? monedaBase?.codigo ?? '-'}</dd>
-                </div>
-                <div>
-                  <dt>Decimales</dt>
-                  <dd>{monedaBase?.decimales ?? '-'}</dd>
-                </div>
-                <div>
-                  <dt>Estado</dt>
-                  <dd>{portafolio.activo ? 'Activo' : 'Inactivo'}</dd>
-                </div>
-              </dl>
-            </article>
-          </section>
-
-          <section className="seccion" aria-labelledby="titulo-resumen">
-            <div className="seccion__cabecera">
-              <div>
-                <h2 id="titulo-resumen">Resumen</h2>
-                <p>
-                  {hayFiltros
-                    ? 'Información de las cuentas que coinciden con los filtros.'
-                    : 'Información disponible de las cuentas asociadas.'}
-                </p>
+            <dl className="detail-grid">
+              <div className="detail-item">
+                <dt>Moneda base</dt>
+                <dd>
+                  {monedaBase
+                    ? `${monedaBase.codigo} · ${monedaBase.nombre}`
+                    : 'No disponible'}
+                </dd>
               </div>
-            </div>
-
-            <dl className="resumen">
-              <div className="resumen__dato">
-                <dt>Cuentas</dt>
-                <dd>{cuentas.length}</dd>
+              <div className="detail-item">
+                <dt>Símbolo</dt>
+                <dd>{monedaBase?.simbolo ?? monedaBase?.codigo ?? '—'}</dd>
               </div>
-              <div className="resumen__dato">
-                <dt>Activas</dt>
-                <dd>{cuentasActivas}</dd>
+              <div className="detail-item">
+                <dt>Decimales</dt>
+                <dd>{monedaBase?.decimales ?? '—'}</dd>
               </div>
-              <div className="resumen__dato">
-                <dt>Inactivas</dt>
-                <dd>{cuentas.length - cuentasActivas}</dd>
-              </div>
-              <div className="resumen__dato">
-                <dt>Monedas</dt>
-                <dd>{monedasDistintas}</dd>
+              <div className="detail-item">
+                <dt>Estado</dt>
+                <dd>{portafolio.activo ? 'Activo' : 'Inactivo'}</dd>
               </div>
             </dl>
+          </FinancialCard>
+
+          <section aria-label="Resumen de cuentas">
+            <div className="metric-grid">
+              <MetricCard etiqueta="Cuentas" valor={cuentas.length} />
+              <MetricCard
+                etiqueta="Activas"
+                valor={cuentasActivas}
+                tono="positivo"
+              />
+              <MetricCard
+                etiqueta="Inactivas"
+                valor={cuentas.length - cuentasActivas}
+                tono="lavanda"
+              />
+              <MetricCard etiqueta="Monedas" valor={monedasDistintas} />
+            </div>
           </section>
 
-          <section className="seccion" aria-labelledby="titulo-cuentas">
-            <div className="seccion__cabecera">
-              <div>
-                <h2 id="titulo-cuentas">Cuentas financieras</h2>
-                <p>Los números se muestran enmascarados por seguridad.</p>
-              </div>
-              <div className="seccion__acciones">
-                <Link
-                  className="boton boton--secundario"
-                  to="/instituciones"
-                >
-                  <IconoInstitucion />
-                  Instituciones
-                </Link>
-                <Link
-                  className="boton boton--primario"
-                  to={`/portafolios/${encodeURIComponent(portafolioId)}/cuentas/nueva`}
-                >
-                  <IconoMas />
-                  Nueva cuenta
-                </Link>
-                <Boton
-                  variante="secundario"
-                  onClick={recargar}
-                  aria-label="Actualizar cuentas"
-                >
-                  <IconoRecargar />
-                  Actualizar
-                </Boton>
-              </div>
-            </div>
-
-            <div className="filtros">
-              <CampoSelect
-                etiqueta="Institución"
-                value={filtroInstitucion}
-                onChange={(evento) =>
-                  setFiltroInstitucion(evento.target.value)
-                }
+          <FinancialCard
+            titulo="Cuentas financieras"
+            subtitulo="Los números de cuenta se muestran enmascarados por seguridad."
+            acciones={
+              <Boton
+                variante="secundario"
+                onClick={recargar}
+                aria-label="Actualizar cuentas"
               >
-                <option value="">Todas las instituciones</option>
-                {instituciones.map((institucion) => (
-                  <option key={institucion.id} value={institucion.id}>
-                    {institucion.nombre}
-                    {!institucion.activo ? ' (inactiva)' : ''}
-                  </option>
-                ))}
-              </CampoSelect>
-
-              <CampoSelect
-                etiqueta="Tipo de cuenta"
-                value={filtroTipo}
-                onChange={(evento) => setFiltroTipo(evento.target.value)}
-              >
-                <option value="">Todos los tipos</option>
-                {tiposCuenta.map((tipo) => (
-                  <option key={tipo.id} value={tipo.id}>
-                    {tipo.nombre}
-                  </option>
-                ))}
-              </CampoSelect>
-
-              <CampoSelect
-                etiqueta="Estado"
-                value={filtroEstado}
-                onChange={(evento) =>
-                  setFiltroEstado(evento.target.value as FiltroEstado)
-                }
-              >
-                <option value="todos">Todos los estados</option>
-                <option value="activos">Solo activas</option>
-                <option value="inactivos">Solo inactivas</option>
-              </CampoSelect>
-
-              {hayFiltros ? (
-                <Boton variante="fantasma" onClick={limpiarFiltros}>
-                  Limpiar filtros
-                </Boton>
-              ) : null}
-            </div>
-
-            {cargandoCuentas ? (
-              <div className="cuentas" aria-hidden="true">
-                {[0, 1].map((indice) => (
-                  <div className="cuenta cuenta--esqueleto" key={indice}>
-                    <Esqueleto className="esqueleto--icono" />
-                    <Esqueleto className="esqueleto--titulo" />
-                    <Esqueleto className="esqueleto--linea" />
-                  </div>
-                ))}
-              </div>
-            ) : errorCuentas ? (
-              <Alerta variante="error" className="alerta--bloque">
-                <div className="alerta__accion">
-                  <span>{errorCuentas}</span>
-                  <Boton variante="secundario" onClick={recargar}>
-                    Reintentar
-                  </Boton>
-                </div>
-              </Alerta>
-            ) : cuentas.length === 0 ? (
-              hayFiltros ? (
-                <EstadoVacio
-                  icono={<IconoVacio />}
-                  titulo="No hay cuentas con estos filtros"
-                  descripcion="Prueba con otra institución, tipo o estado, o limpia los filtros para ver todas las cuentas."
-                  accion={
-                    <Boton variante="secundario" onClick={limpiarFiltros}>
+                <IconoRecargar />
+                Actualizar
+              </Boton>
+            }
+          >
+            <div className="section-stack">
+              <FilterBar
+                acciones={
+                  hayFiltros ? (
+                    <Boton variante="fantasma" onClick={limpiarFiltros}>
                       Limpiar filtros
                     </Boton>
+                  ) : null
+                }
+              >
+                <CampoSelect
+                  etiqueta="Institución"
+                  value={filtroInstitucion}
+                  onChange={(evento) =>
+                    setFiltroInstitucion(evento.target.value)
                   }
+                >
+                  <option value="">Todas las instituciones</option>
+                  {instituciones.map((institucion) => (
+                    <option key={institucion.id} value={institucion.id}>
+                      {institucion.nombre}
+                      {!institucion.activo ? ' (inactiva)' : ''}
+                    </option>
+                  ))}
+                </CampoSelect>
+
+                <CampoSelect
+                  etiqueta="Tipo de cuenta"
+                  value={filtroTipo}
+                  onChange={(evento) => setFiltroTipo(evento.target.value)}
+                >
+                  <option value="">Todos los tipos</option>
+                  {tiposCuenta.map((tipo) => (
+                    <option key={tipo.id} value={tipo.id}>
+                      {tipo.nombre}
+                    </option>
+                  ))}
+                </CampoSelect>
+
+                <CampoSelect
+                  etiqueta="Estado"
+                  value={filtroEstado}
+                  onChange={(evento) =>
+                    setFiltroEstado(evento.target.value as FiltroEstado)
+                  }
+                >
+                  <option value="todos">Todos los estados</option>
+                  <option value="activos">Solo activas</option>
+                  <option value="inactivos">Solo inactivas</option>
+                </CampoSelect>
+              </FilterBar>
+
+              {errorCuentas ? (
+                <ErrorState
+                  mensaje={errorCuentas}
+                  titulo="No se pudieron consultar las cuentas"
+                  onReintentar={recargar}
                 />
               ) : (
-                <EstadoVacio
-                  icono={<IconoVacio />}
-                  titulo="Este portafolio no tiene cuentas"
-                  descripcion="Registra una cuenta financiera para empezar a organizar su información."
-                  accion={
-                    <Link
-                      className="boton boton--primario"
-                      to={`/portafolios/${encodeURIComponent(portafolioId)}/cuentas/nueva`}
-                    >
-                      <IconoMas />
-                      Registrar cuenta
-                    </Link>
+                <DataTable
+                  columnas={columnas}
+                  filas={cuentas}
+                  obtenerClave={(cuenta) => cuenta.id}
+                  cargando={cargandoCuentas}
+                  esqueleto={esqueletoTabla}
+                  vacio={
+                    hayFiltros ? (
+                      <EmptyState
+                        compacta
+                        icono={<IconoVacio />}
+                        titulo="No hay cuentas con estos filtros"
+                        descripcion="Prueba con otra institución, tipo o estado, o limpia los filtros para ver todas las cuentas."
+                        accion={
+                          <Boton variante="secundario" onClick={limpiarFiltros}>
+                            Limpiar filtros
+                          </Boton>
+                        }
+                      />
+                    ) : (
+                      <EmptyState
+                        compacta
+                        icono={<IconoCuenta />}
+                        titulo="Este portafolio no tiene cuentas"
+                        descripcion="Registra una cuenta financiera para empezar a organizar su información."
+                        accion={
+                          <Link
+                            className="btn btn--primario"
+                            to={`/activos/liquidez/${encodeURIComponent(
+                              portafolioId,
+                            )}/cuentas/nueva`}
+                          >
+                            <IconoMas />
+                            Registrar cuenta
+                          </Link>
+                        }
+                      />
+                    )
                   }
                 />
-              )
-            ) : (
-              <div className="cuentas">
-                {cuentas.map((cuenta) => {
-                  const moneda = monedasPorId.get(cuenta.monedaId);
-                  const institucion = institucionesPorId.get(
-                    cuenta.institucionId,
-                  );
-                  const tipo = tiposPorId.get(cuenta.tipoCuentaId);
-                  return (
-                    <Link
-                      className="cuenta cuenta--enlace"
-                      key={cuenta.id}
-                      to={`/portafolios/${encodeURIComponent(
-                        portafolioId,
-                      )}/cuentas/${encodeURIComponent(cuenta.id)}`}
-                      aria-label={`Ver el detalle de la cuenta ${cuenta.nombre}`}
-                    >
-                      <span className="cuenta__icono" aria-hidden="true">
-                        <IconoCuenta />
-                      </span>
-
-                      <span className="cuenta__cuerpo">
-                        <span className="cuenta__encabezado">
-                          <h3>{cuenta.nombre}</h3>
-                          <Insignia activo={cuenta.activo} />
-                        </span>
-                        <span className="cuenta__numero">
-                          {cuenta.numeroCuenta ?? 'Sin número registrado'}
-                        </span>
-
-                        <dl className="cuenta__datos">
-                          <div>
-                            <dt>Institución</dt>
-                            <dd>{institucion?.nombre ?? 'No disponible'}</dd>
-                          </div>
-                          <div>
-                            <dt>Tipo</dt>
-                            <dd>{tipo?.nombre ?? 'No disponible'}</dd>
-                          </div>
-                          <div>
-                            <dt>Moneda</dt>
-                            <dd>{moneda?.codigo ?? '-'}</dd>
-                          </div>
-                          <div>
-                            <dt>Apertura</dt>
-                            <dd>{formatearFecha(cuenta.fechaApertura)}</dd>
-                          </div>
-                        </dl>
-                      </span>
-
-                      <span className="cuenta__flecha" aria-hidden="true">
-                        <IconoFlecha />
-                      </span>
-                    </Link>
-                  );
-                })}
-              </div>
-            )}
-          </section>
+              )}
+            </div>
+          </FinancialCard>
         </>
       ) : null}
     </div>

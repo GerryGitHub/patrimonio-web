@@ -16,7 +16,7 @@ export function NotFoundPage() {
           Puede que el enlace haya cambiado o que ya no tengas acceso a este
           contenido.
         </p>
-        <Link className="boton boton--primario" to="/">
+        <Link className="btn btn--primario" to="/">
           Volver al resumen
         </Link>
       </div>

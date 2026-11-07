@@ -7,7 +7,7 @@ export function PantallaCargando({
 }) {
   return (
     <div className="pantalla-cargando" role="status" aria-live="polite">
-      <Logo />
+      <Logo compacto />
       <span className="cargador" aria-hidden="true" />
       <p>{mensaje}</p>
     </div>
