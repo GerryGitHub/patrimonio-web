@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest';
 import {
   tieneErrores,
   validarConfirmacion,
+  validarCuenta,
   validarDescripcionPortafolio,
   validarEmail,
+  validarInstitucion,
   validarLogin,
   validarNombre,
   validarNombrePortafolio,
@@ -129,5 +131,88 @@ describe('validarPortafolio', () => {
     expect(validarNombrePortafolio('a'.repeat(151))).toBeDefined();
     expect(validarDescripcionPortafolio('a'.repeat(500))).toBeUndefined();
     expect(validarDescripcionPortafolio('a'.repeat(501))).toBeDefined();
+  });
+});
+
+describe('validarInstitucion', () => {
+  it('acepta una institución completa', () => {
+    const errores = validarInstitucion({
+      nombre: 'Banco Ejemplo',
+      tipo: 'BANCO',
+      pais: 'México',
+      sitioWeb: 'https://example.com',
+    });
+
+    expect(tieneErrores(errores)).toBe(false);
+  });
+
+  it('exige nombre y categoría', () => {
+    const errores = validarInstitucion({
+      nombre: '   ',
+      tipo: '',
+      pais: '',
+      sitioWeb: '',
+    });
+
+    expect(errores.nombre).toBeDefined();
+    expect(errores.tipo).toBeDefined();
+  });
+
+  it('limita la longitud de los campos opcionales', () => {
+    const errores = validarInstitucion({
+      nombre: 'a'.repeat(151),
+      tipo: 'OTRA',
+      pais: 'a'.repeat(101),
+      sitioWeb: 'a'.repeat(256),
+    });
+
+    expect(errores.nombre).toBeDefined();
+    expect(errores.pais).toBeDefined();
+    expect(errores.sitioWeb).toBeDefined();
+  });
+});
+
+describe('validarCuenta', () => {
+  it('acepta una cuenta completa y opcionales vacíos', () => {
+    const errores = validarCuenta({
+      nombre: 'Cuenta principal',
+      institucionId: 'inst-1',
+      tipoCuentaId: 'tipo-1',
+      monedaId: 'moneda-1',
+      descripcion: '',
+      numeroCuenta: '',
+    });
+
+    expect(tieneErrores(errores)).toBe(false);
+  });
+
+  it('exige nombre, institución, tipo y moneda', () => {
+    const errores = validarCuenta({
+      nombre: ' ',
+      institucionId: '',
+      tipoCuentaId: '',
+      monedaId: '',
+      descripcion: '',
+      numeroCuenta: '',
+    });
+
+    expect(errores.nombre).toBeDefined();
+    expect(errores.institucionId).toBeDefined();
+    expect(errores.tipoCuentaId).toBeDefined();
+    expect(errores.monedaId).toBeDefined();
+  });
+
+  it('limita la descripción y la referencia', () => {
+    const errores = validarCuenta({
+      nombre: 'Cuenta',
+      institucionId: 'inst-1',
+      tipoCuentaId: 'tipo-1',
+      monedaId: 'moneda-1',
+      descripcion: 'a'.repeat(501),
+      numeroCuenta: 'a'.repeat(65),
+    });
+
+    expect(errores.descripcion).toBeDefined();
+    expect(errores.numeroCuenta).toBeDefined();
   });
 });

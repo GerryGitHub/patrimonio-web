@@ -1,25 +1,30 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import {
-  listarCuentas,
-  listarMonedas,
-  listarPortafolios,
-} from '../api/portafolios';
+import { listarCuentas, listarTiposCuenta } from '../api/cuentas';
+import { listarInstituciones } from '../api/instituciones';
+import { listarMonedas, listarPortafolios } from '../api/portafolios';
 import type {
   CuentaFinanciera,
+  FiltrosCuentas,
+  Institucion,
   Moneda,
   Portafolio,
+  TipoCuenta,
 } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import {
   Alerta,
   Boton,
+  CampoSelect,
   EstadoVacio,
   Esqueleto,
   Insignia,
 } from '../components/ui';
 import {
   IconoCuenta,
+  IconoFlecha,
+  IconoInstitucion,
+  IconoMas,
   IconoMoneda,
   IconoRecargar,
   IconoVacio,
@@ -32,17 +37,28 @@ import {
 } from '../lib/errors';
 import { formatearFecha } from '../lib/format';
 
+type FiltroEstado = 'todos' | 'activos' | 'inactivos';
+
 export function PortfolioPage() {
   const { portafolioId = '' } = useParams();
   const { marcarSesionExpirada } = useAuth();
 
   const [portafolio, setPortafolio] = useState<Portafolio | null>(null);
   const [monedas, setMonedas] = useState<Moneda[]>([]);
+  const [instituciones, setInstituciones] = useState<Institucion[]>([]);
+  const [tiposCuenta, setTiposCuenta] = useState<TipoCuenta[]>([]);
   const [cuentas, setCuentas] = useState<CuentaFinanciera[]>([]);
-  const [cargando, setCargando] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+
+  const [cargandoInicial, setCargandoInicial] = useState(true);
+  const [cargandoCuentas, setCargandoCuentas] = useState(true);
+  const [errorInicial, setErrorInicial] = useState<string | null>(null);
+  const [errorCuentas, setErrorCuentas] = useState<string | null>(null);
   const [noEncontrado, setNoEncontrado] = useState(false);
   const [intento, setIntento] = useState(0);
+
+  const [filtroInstitucion, setFiltroInstitucion] = useState('');
+  const [filtroTipo, setFiltroTipo] = useState('');
+  const [filtroEstado, setFiltroEstado] = useState<FiltroEstado>('todos');
 
   const recargar = useCallback(() => setIntento((valor) => valor + 1), []);
 
@@ -50,22 +66,27 @@ export function PortfolioPage() {
     let cancelado = false;
 
     async function cargar() {
-      setCargando(true);
-      setError(null);
+      setCargandoInicial(true);
+      setErrorInicial(null);
       setNoEncontrado(false);
 
       try {
-        const [lista, catalogo] = await Promise.all([
-          listarPortafolios(),
-          listarMonedas(),
-        ]);
+        const [lista, catalogoMonedas, catalogoInstituciones, catalogoTipos] =
+          await Promise.all([
+            listarPortafolios(),
+            listarMonedas(),
+            listarInstituciones(),
+            listarTiposCuenta(),
+          ]);
         if (cancelado) {
           return;
         }
 
         const encontrado =
           lista.find((elemento) => elemento.id === portafolioId) ?? null;
-        setMonedas(catalogo);
+        setMonedas(catalogoMonedas);
+        setInstituciones(catalogoInstituciones);
+        setTiposCuenta(catalogoTipos);
 
         if (!encontrado) {
           setPortafolio(null);
@@ -74,14 +95,8 @@ export function PortfolioPage() {
           return;
         }
 
-        const cuentasDelPortafolio = await listarCuentas(portafolioId);
-        if (cancelado) {
-          return;
-        }
-
         setPortafolio(encontrado);
-        setCuentas(cuentasDelPortafolio);
-      } catch (fallo: unknown) {
+      } catch (fallo) {
         if (cancelado) {
           return;
         }
@@ -93,10 +108,10 @@ export function PortfolioPage() {
           setNoEncontrado(true);
           return;
         }
-        setError(mensajeDeError(fallo, 'datos'));
+        setErrorInicial(mensajeDeError(fallo, 'datos'));
       } finally {
         if (!cancelado) {
-          setCargando(false);
+          setCargandoInicial(false);
         }
       }
     }
@@ -108,13 +123,90 @@ export function PortfolioPage() {
     };
   }, [portafolioId, intento, marcarSesionExpirada]);
 
+  useEffect(() => {
+    if (cargandoInicial || noEncontrado) {
+      return;
+    }
+
+    let cancelado = false;
+
+    const filtros: FiltrosCuentas = {};
+    if (filtroInstitucion) {
+      filtros.institucionId = filtroInstitucion;
+    }
+    if (filtroTipo) {
+      filtros.tipoCuentaId = filtroTipo;
+    }
+    if (filtroEstado !== 'todos') {
+      filtros.activo = filtroEstado === 'activos';
+    }
+
+    setCargandoCuentas(true);
+    setErrorCuentas(null);
+
+    listarCuentas(portafolioId, filtros)
+      .then((datos) => {
+        if (!cancelado) {
+          setCuentas(datos);
+        }
+      })
+      .catch((fallo: unknown) => {
+        if (cancelado) {
+          return;
+        }
+        if (esNoAutenticado(fallo)) {
+          marcarSesionExpirada();
+          return;
+        }
+        if (esNoEncontrado(fallo)) {
+          setNoEncontrado(true);
+          return;
+        }
+        setErrorCuentas(mensajeDeError(fallo, 'datos'));
+      })
+      .finally(() => {
+        if (!cancelado) {
+          setCargandoCuentas(false);
+        }
+      });
+
+    return () => {
+      cancelado = true;
+    };
+  }, [
+    portafolioId,
+    cargandoInicial,
+    noEncontrado,
+    filtroInstitucion,
+    filtroTipo,
+    filtroEstado,
+    intento,
+    marcarSesionExpirada,
+  ]);
+
   const nombre = portafolio?.nombre ?? 'Portafolio';
   const monedaBase = portafolio?.monedaBase;
   const cuentasActivas = cuentas.filter((cuenta) => cuenta.activo).length;
   const monedasDistintas = new Set(cuentas.map((cuenta) => cuenta.monedaId)).size;
+
   const monedasPorId = new Map<string, Moneda>(
     monedas.map((moneda) => [moneda.id, moneda] as const),
   );
+  const institucionesPorId = new Map<string, Institucion>(
+    instituciones.map((institucion) => [institucion.id, institucion] as const),
+  );
+  const tiposPorId = new Map<string, TipoCuenta>(
+    tiposCuenta.map((tipo) => [tipo.id, tipo] as const),
+  );
+
+  const hayFiltros =
+    filtroInstitucion !== '' || filtroTipo !== '' || filtroEstado !== 'todos';
+
+  function limpiarFiltros() {
+    setFiltroInstitucion('');
+    setFiltroTipo('');
+    setFiltroEstado('todos');
+  }
 
   return (
     <div className="pagina">
@@ -131,7 +223,7 @@ export function PortfolioPage() {
         <div className="pagina__texto">
           <p className="eyebrow">Portafolio seleccionado</p>
           <h1>
-            {cargando
+            {cargandoInicial
               ? 'Cargando portafolio…'
               : noEncontrado
                 ? 'Portafolio no encontrado'
@@ -145,11 +237,11 @@ export function PortfolioPage() {
         </div>
 
         <div className="pagina__meta" aria-live="polite">
-          {cargando ? (
+          {cargandoInicial ? (
             <span className="dato-chip">
               <Esqueleto className="esqueleto--dato" />
             </span>
-          ) : error || noEncontrado ? null : (
+          ) : errorInicial || noEncontrado ? null : (
             <span className="dato-chip">
               <strong>{cuentas.length}</strong>
               {cuentas.length === 1 ? 'cuenta' : 'cuentas'}
@@ -158,7 +250,7 @@ export function PortfolioPage() {
         </div>
       </header>
 
-      {cargando ? (
+      {cargandoInicial ? (
         <>
           <section className="seccion" aria-hidden="true">
             <div className="detalle detalle--esqueleto">
@@ -190,10 +282,10 @@ export function PortfolioPage() {
             </Link>
           }
         />
-      ) : error ? (
+      ) : errorInicial ? (
         <Alerta variante="error" className="alerta--bloque">
           <div className="alerta__accion">
-            <span>{error}</span>
+            <span>{errorInicial}</span>
             <Boton variante="secundario" onClick={recargar}>
               Reintentar
             </Boton>
@@ -253,7 +345,11 @@ export function PortfolioPage() {
             <div className="seccion__cabecera">
               <div>
                 <h2 id="titulo-resumen">Resumen</h2>
-                <p>Información disponible de las cuentas asociadas.</p>
+                <p>
+                  {hayFiltros
+                    ? 'Información de las cuentas que coinciden con los filtros.'
+                    : 'Información disponible de las cuentas asociadas.'}
+                </p>
               </div>
             </div>
 
@@ -283,47 +379,167 @@ export function PortfolioPage() {
                 <h2 id="titulo-cuentas">Cuentas financieras</h2>
                 <p>Los números se muestran enmascarados por seguridad.</p>
               </div>
-              <Boton
-                variante="secundario"
-                onClick={recargar}
-                aria-label="Actualizar cuentas"
-              >
-                <IconoRecargar />
-                Actualizar
-              </Boton>
+              <div className="seccion__acciones">
+                <Link
+                  className="boton boton--secundario"
+                  to="/instituciones"
+                >
+                  <IconoInstitucion />
+                  Instituciones
+                </Link>
+                <Link
+                  className="boton boton--primario"
+                  to={`/portafolios/${encodeURIComponent(portafolioId)}/cuentas/nueva`}
+                >
+                  <IconoMas />
+                  Nueva cuenta
+                </Link>
+                <Boton
+                  variante="secundario"
+                  onClick={recargar}
+                  aria-label="Actualizar cuentas"
+                >
+                  <IconoRecargar />
+                  Actualizar
+                </Boton>
+              </div>
             </div>
 
-            {cuentas.length === 0 ? (
-              <EstadoVacio
-                icono={<IconoVacio />}
-                titulo="Este portafolio no tiene cuentas"
-                descripcion="Cuando se registre una cuenta financiera en este portafolio, aparecerá aquí."
-                accion={
-                  <Link className="boton boton--secundario" to="/">
-                    Volver al resumen
-                  </Link>
+            <div className="filtros">
+              <CampoSelect
+                etiqueta="Institución"
+                value={filtroInstitucion}
+                onChange={(evento) =>
+                  setFiltroInstitucion(evento.target.value)
                 }
-              />
+              >
+                <option value="">Todas las instituciones</option>
+                {instituciones.map((institucion) => (
+                  <option key={institucion.id} value={institucion.id}>
+                    {institucion.nombre}
+                    {!institucion.activo ? ' (inactiva)' : ''}
+                  </option>
+                ))}
+              </CampoSelect>
+
+              <CampoSelect
+                etiqueta="Tipo de cuenta"
+                value={filtroTipo}
+                onChange={(evento) => setFiltroTipo(evento.target.value)}
+              >
+                <option value="">Todos los tipos</option>
+                {tiposCuenta.map((tipo) => (
+                  <option key={tipo.id} value={tipo.id}>
+                    {tipo.nombre}
+                  </option>
+                ))}
+              </CampoSelect>
+
+              <CampoSelect
+                etiqueta="Estado"
+                value={filtroEstado}
+                onChange={(evento) =>
+                  setFiltroEstado(evento.target.value as FiltroEstado)
+                }
+              >
+                <option value="todos">Todos los estados</option>
+                <option value="activos">Solo activas</option>
+                <option value="inactivos">Solo inactivas</option>
+              </CampoSelect>
+
+              {hayFiltros ? (
+                <Boton variante="fantasma" onClick={limpiarFiltros}>
+                  Limpiar filtros
+                </Boton>
+              ) : null}
+            </div>
+
+            {cargandoCuentas ? (
+              <div className="cuentas" aria-hidden="true">
+                {[0, 1].map((indice) => (
+                  <div className="cuenta cuenta--esqueleto" key={indice}>
+                    <Esqueleto className="esqueleto--icono" />
+                    <Esqueleto className="esqueleto--titulo" />
+                    <Esqueleto className="esqueleto--linea" />
+                  </div>
+                ))}
+              </div>
+            ) : errorCuentas ? (
+              <Alerta variante="error" className="alerta--bloque">
+                <div className="alerta__accion">
+                  <span>{errorCuentas}</span>
+                  <Boton variante="secundario" onClick={recargar}>
+                    Reintentar
+                  </Boton>
+                </div>
+              </Alerta>
+            ) : cuentas.length === 0 ? (
+              hayFiltros ? (
+                <EstadoVacio
+                  icono={<IconoVacio />}
+                  titulo="No hay cuentas con estos filtros"
+                  descripcion="Prueba con otra institución, tipo o estado, o limpia los filtros para ver todas las cuentas."
+                  accion={
+                    <Boton variante="secundario" onClick={limpiarFiltros}>
+                      Limpiar filtros
+                    </Boton>
+                  }
+                />
+              ) : (
+                <EstadoVacio
+                  icono={<IconoVacio />}
+                  titulo="Este portafolio no tiene cuentas"
+                  descripcion="Registra una cuenta financiera para empezar a organizar su información."
+                  accion={
+                    <Link
+                      className="boton boton--primario"
+                      to={`/portafolios/${encodeURIComponent(portafolioId)}/cuentas/nueva`}
+                    >
+                      <IconoMas />
+                      Registrar cuenta
+                    </Link>
+                  }
+                />
+              )
             ) : (
               <div className="cuentas">
                 {cuentas.map((cuenta) => {
                   const moneda = monedasPorId.get(cuenta.monedaId);
+                  const institucion = institucionesPorId.get(
+                    cuenta.institucionId,
+                  );
+                  const tipo = tiposPorId.get(cuenta.tipoCuentaId);
                   return (
-                    <article className="cuenta" key={cuenta.id}>
+                    <Link
+                      className="cuenta cuenta--enlace"
+                      key={cuenta.id}
+                      to={`/portafolios/${encodeURIComponent(
+                        portafolioId,
+                      )}/cuentas/${encodeURIComponent(cuenta.id)}`}
+                      aria-label={`Ver el detalle de la cuenta ${cuenta.nombre}`}
+                    >
                       <span className="cuenta__icono" aria-hidden="true">
                         <IconoCuenta />
                       </span>
 
-                      <div className="cuenta__cuerpo">
-                        <div className="cuenta__encabezado">
+                      <span className="cuenta__cuerpo">
+                        <span className="cuenta__encabezado">
                           <h3>{cuenta.nombre}</h3>
                           <Insignia activo={cuenta.activo} />
-                        </div>
-                        <p className="cuenta__numero">
+                        </span>
+                        <span className="cuenta__numero">
                           {cuenta.numeroCuenta ?? 'Sin número registrado'}
-                        </p>
+                        </span>
 
                         <dl className="cuenta__datos">
+                          <div>
+                            <dt>Institución</dt>
+                            <dd>{institucion?.nombre ?? 'No disponible'}</dd>
+                          </div>
+                          <div>
+                            <dt>Tipo</dt>
+                            <dd>{tipo?.nombre ?? 'No disponible'}</dd>
+                          </div>
                           <div>
                             <dt>Moneda</dt>
                             <dd>{moneda?.codigo ?? '-'}</dd>
@@ -332,13 +548,13 @@ export function PortfolioPage() {
                             <dt>Apertura</dt>
                             <dd>{formatearFecha(cuenta.fechaApertura)}</dd>
                           </div>
-                          <div>
-                            <dt>Cierre</dt>
-                            <dd>{formatearFecha(cuenta.fechaCierre)}</dd>
-                          </div>
                         </dl>
-                      </div>
-                    </article>
+                      </span>
+
+                      <span className="cuenta__flecha" aria-hidden="true">
+                        <IconoFlecha />
+                      </span>
+                    </Link>
                   );
                 })}
               </div>

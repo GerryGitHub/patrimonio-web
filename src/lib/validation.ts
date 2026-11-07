@@ -1,3 +1,5 @@
+import type { TipoInstitucion } from '../api/types';
+
 const PATRON_EMAIL = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
 export interface ErroresLogin {
@@ -124,6 +126,86 @@ export function validarPortafolio(datos: {
     monedaBaseId: datos.monedaBaseId
       ? undefined
       : 'Selecciona una moneda base.',
+  };
+}
+
+export interface ErroresInstitucion {
+  nombre?: string;
+  tipo?: string;
+  pais?: string;
+  sitioWeb?: string;
+}
+
+export function validarInstitucion(datos: {
+  nombre: string;
+  tipo: TipoInstitucion | '';
+  pais: string;
+  sitioWeb: string;
+}): ErroresInstitucion {
+  const nombre = datos.nombre.trim();
+  const pais = datos.pais.trim();
+  const sitioWeb = datos.sitioWeb.trim();
+
+  return {
+    nombre: !nombre
+      ? 'Escribe el nombre de la institución.'
+      : nombre.length > 150
+        ? 'El nombre no puede superar los 150 caracteres.'
+        : undefined,
+    tipo: datos.tipo ? undefined : 'Selecciona una categoría.',
+    pais:
+      pais.length > 100
+        ? 'El país no puede superar los 100 caracteres.'
+        : undefined,
+    sitioWeb:
+      sitioWeb.length > 255
+        ? 'El sitio web no puede superar los 255 caracteres.'
+        : undefined,
+  };
+}
+
+export interface ErroresCuenta {
+  nombre?: string;
+  institucionId?: string;
+  tipoCuentaId?: string;
+  monedaId?: string;
+  descripcion?: string;
+  numeroCuenta?: string;
+}
+
+export function validarCuenta(datos: {
+  nombre: string;
+  institucionId: string;
+  tipoCuentaId: string;
+  monedaId: string;
+  descripcion: string;
+  numeroCuenta: string;
+}): ErroresCuenta {
+  const nombre = datos.nombre.trim();
+  const descripcion = datos.descripcion.trim();
+  const numeroCuenta = datos.numeroCuenta.trim();
+
+  return {
+    nombre: !nombre
+      ? 'Escribe un nombre para la cuenta.'
+      : nombre.length > 150
+        ? 'El nombre no puede superar los 150 caracteres.'
+        : undefined,
+    institucionId: datos.institucionId
+      ? undefined
+      : 'Selecciona una institución.',
+    tipoCuentaId: datos.tipoCuentaId
+      ? undefined
+      : 'Selecciona un tipo de cuenta.',
+    monedaId: datos.monedaId ? undefined : 'Selecciona una moneda.',
+    descripcion:
+      descripcion.length > 500
+        ? 'La descripción no puede superar los 500 caracteres.'
+        : undefined,
+    numeroCuenta:
+      numeroCuenta.length > 64
+        ? 'La referencia no puede superar los 64 caracteres.'
+        : undefined,
   };
 }
 

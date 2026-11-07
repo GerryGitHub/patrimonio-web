@@ -54,6 +54,39 @@ describe('crearClienteHttp', () => {
     expect(new Headers(init.headers).get('X-XSRF-TOKEN')).toBe('token');
   });
 
+  it('serializa el cuerpo JSON en PUT', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(respuestaJson({ id: '1' }));
+    const cliente = crearClienteHttp({
+      baseUrl: 'http://localhost:8080/api',
+      fetchImpl,
+    });
+
+    await cliente.put('/v1/portafolios/1/cuentas/2', { nombre: 'Editada' });
+
+    const [, init] = fetchImpl.mock.calls[0] as [string, RequestInit];
+    expect(init.method).toBe('PUT');
+    expect(init.body).toBe(JSON.stringify({ nombre: 'Editada' }));
+    expect(new Headers(init.headers).get('Content-Type')).toBe(
+      'application/json',
+    );
+  });
+
+  it('serializa el cuerpo JSON en PATCH', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(respuestaJson({ id: '1' }));
+    const cliente = crearClienteHttp({
+      baseUrl: 'http://localhost:8080/api',
+      fetchImpl,
+    });
+
+    await cliente.patch('/v1/portafolios/1/cuentas/2/estado', {
+      activo: false,
+    });
+
+    const [, init] = fetchImpl.mock.calls[0] as [string, RequestInit];
+    expect(init.method).toBe('PATCH');
+    expect(init.body).toBe(JSON.stringify({ activo: false }));
+  });
+
   it('devuelve undefined en respuestas 204', async () => {
     const fetchImpl = vi
       .fn()

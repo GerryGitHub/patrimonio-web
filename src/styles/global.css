@@ -216,6 +216,17 @@ svg {
   color: var(--tinta-700);
 }
 
+.boton--peligro {
+  background: var(--peligro);
+  color: #fdf6f4;
+  box-shadow: 0 12px 26px -18px rgba(166, 58, 47, 0.9);
+}
+
+.boton--peligro:hover:not(:disabled) {
+  background: #8f3026;
+  transform: translateY(-1px);
+}
+
 .boton--icono {
   padding-inline: 0.8rem;
 }
@@ -437,6 +448,20 @@ svg {
 .formulario--portafolio {
   max-width: 640px;
   margin-top: 0;
+}
+
+.formulario--institucion {
+  max-width: 640px;
+  margin-top: 0;
+}
+
+.formulario--cuenta {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 0;
+}
+
+.campo--ancho {
+  grid-column: 1 / -1;
 }
 
 .formulario__acciones {
@@ -824,6 +849,28 @@ svg {
   height: 17px;
 }
 
+/* ------------------------------------------------------------- Filtros */
+
+.filtros {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.85rem;
+  flex-wrap: wrap;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  background: rgba(255, 255, 255, 0.6);
+}
+
+.filtros .campo {
+  min-width: 180px;
+  flex: 1 1 180px;
+}
+
+.filtros .boton {
+  margin-bottom: 1px;
+}
+
 /* -------------------------------------------------------- Portafolios */
 
 .portafolios {
@@ -960,6 +1007,117 @@ svg {
   height: 19px;
 }
 
+/* ------------------------------------------------------- Instituciones */
+
+.instituciones {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1rem;
+}
+
+.institucion {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.9rem;
+  padding: 1.15rem 1.25rem;
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+  background: var(--superficie);
+  box-shadow: var(--sombra-sm);
+}
+
+.institucion__icono {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: var(--verde-claro);
+  color: var(--verde);
+}
+
+.institucion__icono svg {
+  width: 21px;
+  height: 21px;
+}
+
+.institucion__cuerpo {
+  display: grid;
+  gap: 0.3rem;
+  min-width: 0;
+  width: 100%;
+}
+
+.institucion__encabezado {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.institucion__encabezado h3 {
+  font-size: 1rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  overflow-wrap: anywhere;
+}
+
+.institucion__meta {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  margin-top: 0.1rem;
+}
+
+.etiqueta-categoria {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.18rem 0.55rem;
+  border-radius: 999px;
+  background: var(--oro-suave);
+  color: #7a5c22;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.institucion__pais {
+  font-size: 0.8rem;
+  color: var(--texto-suave);
+}
+
+.institucion__sitio,
+.institucion__sin-sitio {
+  margin-top: 0.35rem;
+  font-size: 0.82rem;
+  overflow-wrap: anywhere;
+}
+
+.institucion__sitio {
+  color: var(--verde);
+  text-decoration: none;
+}
+
+.institucion__sitio:hover {
+  text-decoration: underline;
+}
+
+.institucion__sin-sitio {
+  color: var(--texto-suave);
+  font-style: italic;
+}
+
+.institucion--esqueleto {
+  display: grid;
+  gap: 0.45rem;
+  align-content: start;
+  min-height: 110px;
+}
+
 /* ------------------------------------------------------------- Cuentas */
 
 .cuentas {
@@ -976,6 +1134,47 @@ svg {
   border-radius: var(--radio);
   background: var(--superficie);
   box-shadow: var(--sombra-sm);
+}
+
+.cuenta--enlace {
+  color: inherit;
+  text-decoration: none;
+  transition:
+    transform var(--transicion),
+    border-color var(--transicion),
+    box-shadow var(--transicion);
+}
+
+.cuenta--enlace:hover {
+  transform: translateY(-2px);
+  border-color: rgba(31, 92, 74, 0.35);
+  box-shadow: 0 22px 44px -30px rgba(11, 31, 26, 0.55);
+}
+
+.cuenta--enlace:focus-visible {
+  outline: 2px solid var(--verde);
+  outline-offset: 2px;
+}
+
+.cuenta__flecha {
+  display: grid;
+  place-items: center;
+  align-self: center;
+  flex: none;
+  color: var(--borde-fuerte);
+  transition:
+    transform var(--transicion),
+    color var(--transicion);
+}
+
+.cuenta--enlace:hover .cuenta__flecha {
+  transform: translateX(3px);
+  color: var(--verde);
+}
+
+.cuenta__flecha svg {
+  width: 19px;
+  height: 19px;
 }
 
 .cuenta__icono {
@@ -1179,6 +1378,31 @@ svg {
   font-weight: 650;
   letter-spacing: -0.02em;
   color: var(--tinta-700);
+}
+
+.acciones-detalle {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.acciones-en-linea {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.dato-enmascarado {
+  font-family: ui-monospace, 'SFMono-Regular', Consolas, monospace;
+  letter-spacing: 0.06em;
+}
+
+.dato-id {
+  font-family: ui-monospace, 'SFMono-Regular', Consolas, monospace;
+  font-size: 0.78rem;
+  overflow-wrap: anywhere;
 }
 
 /* --------------------------------------------------------- Estados */
@@ -1407,6 +1631,23 @@ svg {
 
   .portafolios {
     grid-template-columns: 1fr;
+  }
+
+  .instituciones {
+    grid-template-columns: 1fr;
+  }
+
+  .formulario--cuenta {
+    grid-template-columns: 1fr;
+  }
+
+  .filtros {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .filtros .campo {
+    min-width: 0;
   }
 
   .formulario__acciones {

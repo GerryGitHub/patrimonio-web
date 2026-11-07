@@ -2,7 +2,6 @@ import { postConCsrf } from './csrf';
 import { http } from '../lib/http';
 import type {
   CrearPortafolioDatos,
-  CuentaFinanciera,
   Moneda,
   Portafolio,
 } from './types';
@@ -23,12 +22,4 @@ export function crearPortafolio(
     descripcion: datos.descripcion,
     monedaBaseId: datos.monedaBaseId,
   });
-}
-
-export function listarCuentas(
-  portafolioId: string,
-): Promise<CuentaFinanciera[]> {
-  return http.get<CuentaFinanciera[]>(
-    `/v1/portafolios/${encodeURIComponent(portafolioId)}/cuentas`,
-  );
 }

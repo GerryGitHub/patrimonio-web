@@ -47,6 +47,16 @@ export interface ClienteHttp {
     body?: unknown,
     headers?: Record<string, string>,
   ): Promise<T>;
+  put<T>(
+    path: string,
+    body?: unknown,
+    headers?: Record<string, string>,
+  ): Promise<T>;
+  patch<T>(
+    path: string,
+    body?: unknown,
+    headers?: Record<string, string>,
+  ): Promise<T>;
 }
 
 export function crearClienteHttp(
@@ -92,18 +102,36 @@ export function crearClienteHttp(
     return (await response.json()) as T;
   }
 
+  function enviarConCuerpo<T>(
+    method: 'POST' | 'PUT' | 'PATCH',
+    path: string,
+    body?: unknown,
+    headers?: Record<string, string>,
+  ): Promise<T> {
+    return solicitar<T>(path, {
+      method,
+      body: body === undefined ? undefined : JSON.stringify(body),
+      headers,
+    });
+  }
+
   return {
     get: <T>(path: string) => solicitar<T>(path),
     post: <T>(
       path: string,
       body?: unknown,
       headers?: Record<string, string>,
-    ) =>
-      solicitar<T>(path, {
-        method: 'POST',
-        body: body === undefined ? undefined : JSON.stringify(body),
-        headers,
-      }),
+    ) => enviarConCuerpo<T>('POST', path, body, headers),
+    put: <T>(
+      path: string,
+      body?: unknown,
+      headers?: Record<string, string>,
+    ) => enviarConCuerpo<T>('PUT', path, body, headers),
+    patch: <T>(
+      path: string,
+      body?: unknown,
+      headers?: Record<string, string>,
+    ) => enviarConCuerpo<T>('PATCH', path, body, headers),
   };
 }
 

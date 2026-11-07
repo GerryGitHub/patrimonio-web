@@ -27,6 +27,36 @@ export interface CrearPortafolioDatos {
   monedaBaseId: string;
 }
 
+export type TipoInstitucion =
+  | 'BANCO'
+  | 'SOFIPO'
+  | 'CASA_BOLSA'
+  | 'EXCHANGE'
+  | 'OTRA';
+
+export interface Institucion {
+  id: string;
+  nombre: string;
+  tipo: TipoInstitucion;
+  pais: string | null;
+  sitioWeb: string | null;
+  activo: boolean;
+}
+
+export interface CrearInstitucionDatos {
+  nombre: string;
+  tipo: TipoInstitucion;
+  pais?: string;
+  sitioWeb?: string;
+}
+
+export interface TipoCuenta {
+  id: string;
+  nombre: string;
+  descripcion: string | null;
+  activo: boolean;
+}
+
 export interface CuentaFinanciera {
   id: string;
   nombre: string;
@@ -37,6 +67,31 @@ export interface CuentaFinanciera {
   activo: boolean;
   fechaApertura: string | null;
   fechaCierre: string | null;
+  descripcion: string | null;
+}
+
+export interface DatosCuenta {
+  institucionId: string;
+  tipoCuentaId: string;
+  monedaId: string;
+  nombre: string;
+  descripcion?: string;
+  numeroCuenta?: string;
+  fechaApertura?: string;
+}
+
+export type CrearCuentaDatos = DatosCuenta;
+export type ActualizarCuentaDatos = DatosCuenta;
+
+export interface FiltrosCuentas {
+  institucionId?: string;
+  tipoCuentaId?: string;
+  activo?: boolean;
+}
+
+export interface FiltrosInstituciones {
+  tipo?: TipoInstitucion;
+  activo?: boolean;
 }
 
 export interface CsrfResponse {

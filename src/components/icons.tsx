@@ -163,3 +163,32 @@ export function IconoMoneda(props: IconoProps) {
     </Base>
   );
 }
+
+export function IconoInstitucion(props: IconoProps) {
+  return (
+    <Base {...props}>
+      <path d="M3.5 20h17" />
+      <path d="M5 20V9.5L12 5l7 4.5V20" />
+      <path d="M9 20v-5h6v5" />
+      <path d="M9.5 10h.01M14.5 10h.01M9.5 13h.01M14.5 13h.01" />
+    </Base>
+  );
+}
+
+export function IconoEditar(props: IconoProps) {
+  return (
+    <Base {...props}>
+      <path d="M4 20h4.5L19 9.5 14.5 5 4 15.5V20Z" />
+      <path d="m13 6.5 4.5 4.5" />
+    </Base>
+  );
+}
+
+export function IconoPower(props: IconoProps) {
+  return (
+    <Base {...props}>
+      <path d="M12 4v7" />
+      <path d="M7.5 6.8a8 8 0 1 0 9 0" />
+    </Base>
+  );
+}

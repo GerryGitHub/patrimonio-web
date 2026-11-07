@@ -36,6 +36,14 @@ export function AppShell({ children }: { children: ReactNode }) {
             >
               Resumen
             </NavLink>
+            <NavLink
+              to="/instituciones"
+              className={({ isActive }) =>
+                `cabecera__enlace ${isActive ? 'cabecera__enlace--activo' : ''}`
+              }
+            >
+              Instituciones
+            </NavLink>
           </nav>
 
           <div className="cabecera__usuario">

@@ -15,7 +15,7 @@ import {
 } from './icons';
 
 interface BotonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  variante?: 'primario' | 'secundario' | 'fantasma';
+  variante?: 'primario' | 'secundario' | 'fantasma' | 'peligro';
   cargando?: boolean;
   anchoCompleto?: boolean;
 }

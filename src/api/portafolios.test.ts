@@ -18,7 +18,6 @@ vi.mock('./csrf', () => ({
 
 import {
   crearPortafolio,
-  listarCuentas,
   listarMonedas,
   listarPortafolios,
 } from './portafolios';
@@ -59,15 +58,5 @@ describe('api de portafolios', () => {
       descripcion: 'Ahorro',
       monedaBaseId: 'moneda-1',
     });
-  });
-
-  it('codifica el identificador al consultar cuentas', async () => {
-    mocks.get.mockResolvedValue([]);
-
-    await listarCuentas('id con espacios');
-
-    expect(mocks.get).toHaveBeenCalledWith(
-      '/v1/portafolios/id%20con%20espacios/cuentas',
-    );
   });
 });

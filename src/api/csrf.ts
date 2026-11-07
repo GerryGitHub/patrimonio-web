@@ -24,26 +24,55 @@ export async function obtenerCsrf(): Promise<string> {
   return respuesta.token;
 }
 
+type MetodoConCsrf = 'POST' | 'PUT' | 'PATCH';
+
 /**
- * Envía un POST con la cabecera CSRF.
+ * Envía una petición que modifica estado con la cabecera CSRF.
  *
  * <p>Si la cookie cambió (por ejemplo, en otra pestaña), el token en memoria
- * queda obsoleto. Se pide una vez más y se reintenta la operación.</p>
+ * queda obsoleto. Se pide una vez más y se reintenta la operación. El reintento
+ * solo se hace ante un 403, que es la respuesta del backend para un token
+ * inválido.</p>
  */
-export async function postConCsrf<T>(
+async function enviarConCsrf<T>(
+  metodo: MetodoConCsrf,
   path: string,
   body?: unknown,
 ): Promise<T> {
   let token = await obtenerCsrf();
 
+  const enviar = (): Promise<T> => {
+    const headers = { 'X-XSRF-TOKEN': token };
+    switch (metodo) {
+      case 'POST':
+        return http.post<T>(path, body, headers);
+      case 'PUT':
+        return http.put<T>(path, body, headers);
+      case 'PATCH':
+        return http.patch<T>(path, body, headers);
+    }
+  };
+
   try {
-    return await http.post<T>(path, body, { 'X-XSRF-TOKEN': token });
+    return await enviar();
   } catch (error) {
     if (error instanceof ApiError && error.status === 403) {
       csrfToken = null;
       token = await obtenerCsrf();
-      return http.post<T>(path, body, { 'X-XSRF-TOKEN': token });
+      return enviar();
     }
     throw error;
   }
+}
+
+export function postConCsrf<T>(path: string, body?: unknown): Promise<T> {
+  return enviarConCsrf<T>('POST', path, body);
+}
+
+export function putConCsrf<T>(path: string, body?: unknown): Promise<T> {
+  return enviarConCsrf<T>('PUT', path, body);
+}
+
+export function patchConCsrf<T>(path: string, body?: unknown): Promise<T> {
+  return enviarConCsrf<T>('PATCH', path, body);
 }
