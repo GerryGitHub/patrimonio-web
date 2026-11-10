@@ -1,4 +1,6 @@
 import type { TipoInstitucion } from '../api/types';
+import { esDecimalNoNegativo } from './decimales';
+import { fechaHoyIso } from './format';
 
 const PATRON_EMAIL = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
@@ -205,6 +207,124 @@ export function validarCuenta(datos: {
     numeroCuenta:
       numeroCuenta.length > 64
         ? 'La referencia no puede superar los 64 caracteres.'
+        : undefined,
+  };
+}
+
+export interface ErroresInstrumento {
+  tipoInstrumentoId?: string;
+  nombre?: string;
+  simbolo?: string;
+  emisor?: string;
+  mercado?: string;
+  monedaId?: string;
+  identificadorExterno?: string;
+  isin?: string;
+  descripcion?: string;
+}
+
+const PATRON_ISIN = /^[A-Z0-9]{12}$/;
+
+export function validarInstrumento(datos: {
+  tipoInstrumentoId: string;
+  nombre: string;
+  simbolo: string;
+  emisor: string;
+  mercado: string;
+  monedaId: string;
+  identificadorExterno: string;
+  isin: string;
+  descripcion: string;
+}): ErroresInstrumento {
+  const nombre = datos.nombre.trim();
+  const simbolo = datos.simbolo.trim();
+  const emisor = datos.emisor.trim();
+  const mercado = datos.mercado.trim();
+  const identificadorExterno = datos.identificadorExterno.trim();
+  const isin = datos.isin.trim().toUpperCase();
+  const descripcion = datos.descripcion.trim();
+
+  return {
+    tipoInstrumentoId: datos.tipoInstrumentoId
+      ? undefined
+      : 'Selecciona un tipo de instrumento.',
+    nombre: !nombre
+      ? 'Escribe el nombre del instrumento.'
+      : nombre.length > 200
+        ? 'El nombre no puede superar los 200 caracteres.'
+        : undefined,
+    simbolo:
+      simbolo.length > 32
+        ? 'El símbolo no puede superar los 32 caracteres.'
+        : undefined,
+    emisor:
+      emisor.length > 150
+        ? 'El emisor no puede superar los 150 caracteres.'
+        : undefined,
+    mercado:
+      mercado.length > 100
+        ? 'El mercado no puede superar los 100 caracteres.'
+        : undefined,
+    monedaId: datos.monedaId ? undefined : 'Selecciona una moneda.',
+    identificadorExterno:
+      identificadorExterno.length > 100
+        ? 'El identificador externo no puede superar los 100 caracteres.'
+        : undefined,
+    isin:
+      isin && !PATRON_ISIN.test(isin)
+        ? 'El ISIN debe tener 12 caracteres alfanuméricos.'
+        : undefined,
+    descripcion:
+      descripcion.length > 500
+        ? 'La descripción no puede superar los 500 caracteres.'
+        : undefined,
+  };
+}
+
+export interface ErroresPosicion {
+  cuentaId?: string;
+  instrumentoId?: string;
+  cantidad?: string;
+  costoUnitario?: string;
+  fechaApertura?: string;
+  observaciones?: string;
+}
+
+export function validarPosicion(datos: {
+  cuentaId: string;
+  instrumentoId: string;
+  cantidad: string;
+  costoUnitario: string;
+  fechaApertura: string;
+  observaciones: string;
+}): ErroresPosicion {
+  const cantidad = datos.cantidad.trim();
+  const costoUnitario = datos.costoUnitario.trim();
+  const observaciones = datos.observaciones.trim();
+  const hoy = fechaHoyIso();
+
+  return {
+    cuentaId: datos.cuentaId ? undefined : 'Selecciona una cuenta.',
+    instrumentoId: datos.instrumentoId
+      ? undefined
+      : 'Selecciona un instrumento.',
+    cantidad: !cantidad
+      ? 'Escribe la cantidad.'
+      : !esDecimalNoNegativo(cantidad)
+        ? 'La cantidad debe ser un número mayor o igual que cero.'
+        : undefined,
+    costoUnitario: !costoUnitario
+      ? 'Escribe el costo unitario.'
+      : !esDecimalNoNegativo(costoUnitario)
+        ? 'El costo unitario debe ser un número mayor o igual que cero.'
+        : undefined,
+    fechaApertura:
+      datos.fechaApertura && datos.fechaApertura > hoy
+        ? 'La fecha de apertura no puede ser posterior a hoy.'
+        : undefined,
+    observaciones:
+      observaciones.length > 500
+        ? 'Las observaciones no pueden superar los 500 caracteres.'
         : undefined,
   };
 }

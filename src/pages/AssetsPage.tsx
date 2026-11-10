@@ -17,44 +17,58 @@ import {
 } from '../components/icons';
 import { usePortafolios } from '../portfolio/PortfolioContext';
 
-const CATEGORIAS = [
+interface CategoriaActivo {
+  ruta: string;
+  titulo: string;
+  descripcion: string;
+  Icono: typeof IconoRentaFija;
+  disponible: boolean;
+}
+
+const CATEGORIAS: CategoriaActivo[] = [
   {
     ruta: '/activos/renta-fija',
     titulo: 'Renta fija',
     descripcion: 'Instrumentos de deuda, tasas pactadas y cupones.',
     Icono: IconoRentaFija,
+    disponible: true,
   },
   {
     ruta: '/activos/acciones-etfs',
     titulo: 'Acciones y ETFs',
     descripcion: 'Renta variable y fondos cotizados.',
     Icono: IconoAcciones,
+    disponible: true,
   },
   {
     ruta: '/activos/criptomonedas',
     titulo: 'Criptomonedas',
     descripcion: 'Activos digitales y saldos en exchanges.',
     Icono: IconoCripto,
+    disponible: true,
   },
   {
     ruta: '/activos/inmuebles',
     titulo: 'Inmuebles',
     descripcion: 'Propiedades y activos inmobiliarios.',
     Icono: IconoInmueble,
+    disponible: false,
   },
   {
     ruta: '/activos/vehiculos',
     titulo: 'Vehículos',
     descripcion: 'Vehículos y bienes muebles.',
     Icono: IconoVehiculo,
+    disponible: false,
   },
   {
     ruta: '/activos/otros',
     titulo: 'Otros activos',
     descripcion: 'Bienes, colecciones y activos no clasificados.',
     Icono: IconoOtros,
+    disponible: false,
   },
-] as const;
+];
 
 export function AssetsPage() {
   const { portafolios } = usePortafolios();
@@ -64,7 +78,7 @@ export function AssetsPage() {
       <PageHeader
         eyebrow="Patrimonio"
         titulo="Mis activos"
-        descripcion="Organiza tus activos por categoría. Las cuentas financieras y sus catálogos están disponibles; las demás categorías se habilitarán en las siguientes entregas."
+        descripcion="Organiza tus activos por categoría. Las cuentas financieras, los instrumentos y sus posiciones ya están disponibles; las demás categorías se habilitarán en las siguientes entregas."
         acciones={
           <Link className="btn btn--primario" to="/activos/liquidez">
             <IconoMas />
@@ -75,7 +89,7 @@ export function AssetsPage() {
 
       <FinancialCard
         titulo="Categorías de activos"
-        subtitulo="Cada categoría tendrá su propio detalle cuando exista el contrato de valuación correspondiente."
+        subtitulo="Cada categoría muestra posiciones reales cuando existe el contrato correspondiente en el backend."
       >
         <div className="asset-grid">
           <Link className="asset-card" to="/activos/liquidez">
@@ -97,9 +111,11 @@ export function AssetsPage() {
             </span>
           </Link>
 
-          {CATEGORIAS.map(({ ruta, titulo, descripcion, Icono }) => (
+          {CATEGORIAS.map(({ ruta, titulo, descripcion, Icono, disponible }) => (
             <Link
-              className="asset-card asset-card--pendiente"
+              className={`asset-card ${
+                disponible ? '' : 'asset-card--pendiente'
+              }`.trim()}
               to={ruta}
               key={ruta}
             >
@@ -107,12 +123,14 @@ export function AssetsPage() {
                 <span className="asset-card__icon" aria-hidden="true">
                   <Icono />
                 </span>
-                <StatusBadge estado="pendiente">Pendiente</StatusBadge>
+                <StatusBadge estado={disponible ? 'activo' : 'pendiente'}>
+                  {disponible ? 'Disponible' : 'Pendiente'}
+                </StatusBadge>
               </div>
               <span className="asset-card__title">{titulo}</span>
               <span className="asset-card__description">{descripcion}</span>
               <span className="asset-card__meta">
-                Sin datos disponibles
+                {disponible ? 'Ver posiciones' : 'Sin datos disponibles'}
                 <IconoFlecha />
               </span>
             </Link>
@@ -122,7 +140,7 @@ export function AssetsPage() {
 
       <FinancialCard
         titulo="Catálogos de apoyo"
-        subtitulo="Datos reutilizables por las cuentas y los próximos módulos patrimoniales."
+        subtitulo="Datos reutilizables por las cuentas, las posiciones y los próximos módulos patrimoniales."
       >
         <div className="asset-grid">
           <Link className="asset-card" to="/activos/liquidez">
@@ -139,6 +157,24 @@ export function AssetsPage() {
             </span>
             <span className="asset-card__meta">
               Ir a Liquidez y cuentas
+              <IconoFlecha />
+            </span>
+          </Link>
+
+          <Link className="asset-card" to="/instrumentos">
+            <div className="asset-card__top">
+              <span className="asset-card__icon" aria-hidden="true">
+                <IconoRentaFija />
+              </span>
+              <StatusBadge estado="lavanda">Catálogo</StatusBadge>
+            </div>
+            <span className="asset-card__title">Instrumentos financieros</span>
+            <span className="asset-card__description">
+              Renta variable, renta fija y activos digitales disponibles para
+              registrar posiciones.
+            </span>
+            <span className="asset-card__meta">
+              Gestionar instrumentos
               <IconoFlecha />
             </span>
           </Link>

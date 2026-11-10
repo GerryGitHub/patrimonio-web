@@ -26,6 +26,8 @@ interface SidebarProps {
 
 const SUBACTIVOS = [
   { ruta: '/activos/liquidez', etiqueta: 'Liquidez y cuentas', Icono: IconoLiquidez },
+  { ruta: '/posiciones', etiqueta: 'Posiciones', Icono: IconoAcciones },
+  { ruta: '/instrumentos', etiqueta: 'Instrumentos', Icono: IconoRentaFija },
   { ruta: '/activos/renta-fija', etiqueta: 'Renta fija', Icono: IconoRentaFija },
   { ruta: '/activos/acciones-etfs', etiqueta: 'Acciones y ETFs', Icono: IconoAcciones },
   { ruta: '/activos/criptomonedas', etiqueta: 'Criptomonedas', Icono: IconoCripto },
@@ -34,22 +36,29 @@ const SUBACTIVOS = [
   { ruta: '/activos/otros', etiqueta: 'Otros activos', Icono: IconoOtros },
 ] as const;
 
+function esRutaDeActivos(pathname: string): boolean {
+  return (
+    pathname === '/activos' ||
+    pathname.startsWith('/activos/') ||
+    pathname.startsWith('/instrumentos') ||
+    pathname.startsWith('/posiciones')
+  );
+}
+
 /** Navegación lateral de escritorio y cajón de navegación en móvil. */
 export function Sidebar({ abierto, onCerrar }: SidebarProps) {
   const location = useLocation();
   const [activosAbierto, setActivosAbierto] = useState(
-    location.pathname.startsWith('/activos'),
+    esRutaDeActivos(location.pathname),
   );
 
   useEffect(() => {
-    if (location.pathname.startsWith('/activos')) {
+    if (esRutaDeActivos(location.pathname)) {
       setActivosAbierto(true);
     }
   }, [location.pathname]);
 
-  const activosActivo =
-    location.pathname === '/activos' ||
-    location.pathname.startsWith('/activos/');
+  const activosActivo = esRutaDeActivos(location.pathname);
 
   return (
     <aside

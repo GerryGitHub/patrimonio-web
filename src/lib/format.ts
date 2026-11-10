@@ -22,6 +22,34 @@ export function formatearFecha(
   }).format(new Date(anio, mes - 1, dia));
 }
 
+export function formatearFechaHora(
+  fecha: string | null | undefined,
+): string {
+  if (!fecha) {
+    return '-';
+  }
+
+  const instante = new Date(fecha);
+  if (Number.isNaN(instante.getTime())) {
+    return fecha;
+  }
+
+  return new Intl.DateTimeFormat('es-ES', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(instante);
+}
+
+export function fechaHoyIso(fecha = new Date()): string {
+  const anio = fecha.getFullYear();
+  const mes = String(fecha.getMonth() + 1).padStart(2, '0');
+  const dia = String(fecha.getDate()).padStart(2, '0');
+  return `${anio}-${mes}-${dia}`;
+}
+
 export function saludo(fecha = new Date()): string {
   const hora = fecha.getHours();
   if (hora < 12) {

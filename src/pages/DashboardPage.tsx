@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { listarCuentas } from '../api/cuentas';
-import type { CuentaFinanciera } from '../api/types';
+import { obtenerResumenPosiciones } from '../api/posiciones';
+import type { CuentaFinanciera, ResumenPosiciones } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { ChartContainer } from '../components/ChartContainer';
+import { CostosMoneda } from '../components/CostosMoneda';
 import { EmptyState } from '../components/EmptyState';
 import { ErrorState } from '../components/ErrorState';
 import { FinancialCard } from '../components/FinancialCard';
@@ -26,27 +28,10 @@ import {
 } from '../components/icons';
 import { esNoAutenticado, mensajeDeError } from '../lib/errors';
 import { primerNombre, saludo } from '../lib/format';
+import { combinarResumenes, resumenVacio } from '../lib/inversiones';
 import { PORTAFOLIO_TODOS, usePortafolios } from '../portfolio/PortfolioContext';
 
 const CATEGORIAS_PENDIENTES = [
-  {
-    nombre: 'Renta fija',
-    descripcion: 'Instrumentos de deuda y tasas pactadas.',
-    Icono: IconoRentaFija,
-    ruta: '/activos/renta-fija',
-  },
-  {
-    nombre: 'Acciones y ETFs',
-    descripcion: 'Posiciones de renta variable y fondos cotizados.',
-    Icono: IconoAcciones,
-    ruta: '/activos/acciones-etfs',
-  },
-  {
-    nombre: 'Criptomonedas',
-    descripcion: 'Activos digitales y saldos en exchanges.',
-    Icono: IconoCripto,
-    ruta: '/activos/criptomonedas',
-  },
   {
     nombre: 'Inmuebles',
     descripcion: 'Propiedades y activos inmobiliarios.',
@@ -67,6 +52,27 @@ const CATEGORIAS_PENDIENTES = [
   },
 ] as const;
 
+const CATEGORIAS_INVERSION = [
+  {
+    nombre: 'Renta fija',
+    descripcion: 'Instrumentos de deuda y tasas pactadas.',
+    Icono: IconoRentaFija,
+    ruta: '/activos/renta-fija',
+  },
+  {
+    nombre: 'Renta variable',
+    descripcion: 'Acciones, ETFs y fondos cotizados.',
+    Icono: IconoAcciones,
+    ruta: '/activos/acciones-etfs',
+  },
+  {
+    nombre: 'Activos digitales',
+    descripcion: 'Criptomonedas y otros activos digitales.',
+    Icono: IconoCripto,
+    ruta: '/activos/criptomonedas',
+  },
+] as const;
+
 export function DashboardPage() {
   const { usuario, marcarSesionExpirada } = useAuth();
   const {
@@ -84,6 +90,11 @@ export function DashboardPage() {
   const [errorCuentas, setErrorCuentas] = useState<string | null>(null);
   const [intentoCuentas, setIntentoCuentas] = useState(0);
 
+  const [resumen, setResumen] = useState<ResumenPosiciones>(resumenVacio);
+  const [cargandoPosiciones, setCargandoPosiciones] = useState(false);
+  const [errorPosiciones, setErrorPosiciones] = useState<string | null>(null);
+  const [intentoPosiciones, setIntentoPosiciones] = useState(0);
+
   const ids = useMemo(() => {
     if (seleccionadoId === PORTAFOLIO_TODOS || seleccionadoId === null) {
       return portafolios.map((portafolio) => portafolio.id);
@@ -95,6 +106,10 @@ export function DashboardPage() {
 
   const recargarCuentas = useCallback(
     () => setIntentoCuentas((valor) => valor + 1),
+    [],
+  );
+  const recargarPosiciones = useCallback(
+    () => setIntentoPosiciones((valor) => valor + 1),
     [],
   );
 
@@ -140,12 +155,63 @@ export function DashboardPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [idsClave, revision, intentoCuentas, marcarSesionExpirada]);
 
+  useEffect(() => {
+    if (ids.length === 0) {
+      setResumen(resumenVacio());
+      setCargandoPosiciones(false);
+      setErrorPosiciones(null);
+      return;
+    }
+
+    let cancelado = false;
+    setCargandoPosiciones(true);
+    setErrorPosiciones(null);
+
+    Promise.all(ids.map((id) => obtenerResumenPosiciones(id)))
+      .then((resumenes) => {
+        if (!cancelado) {
+          setResumen(combinarResumenes(resumenes));
+        }
+      })
+      .catch((fallo: unknown) => {
+        if (cancelado) {
+          return;
+        }
+        if (esNoAutenticado(fallo)) {
+          marcarSesionExpirada();
+          return;
+        }
+        setErrorPosiciones(mensajeDeError(fallo, 'posicion'));
+      })
+      .finally(() => {
+        if (!cancelado) {
+          setCargandoPosiciones(false);
+        }
+      });
+
+    return () => {
+      cancelado = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [idsClave, revision, intentoPosiciones, marcarSesionExpirada]);
+
   const cuentasActivas = cuentas.filter((cuenta) => cuenta.activo).length;
-  const sinPortafolios = !cargandoPortafolios && !errorPortafolios && portafolios.length === 0;
+  const sinPortafolios =
+    !cargandoPortafolios && !errorPortafolios && portafolios.length === 0;
   const nombreContexto =
     seleccionadoId === PORTAFOLIO_TODOS
       ? 'Todos los portafolios'
       : (seleccionado?.nombre ?? 'Portafolio');
+
+  const distribucionDe = useCallback(
+    (nombre: string) =>
+      resumen.distribucionPorCategoria.find(
+        (categoria) =>
+          categoria.claseActivoNombre.trim().toLowerCase() ===
+          nombre.trim().toLowerCase(),
+      ),
+    [resumen.distribucionPorCategoria],
+  );
 
   const conteoCuentas = cargandoCuentas ? (
     <span className="skeleton skeleton--line" aria-hidden="true" />
@@ -155,12 +221,28 @@ export function DashboardPage() {
     cuentas.length
   );
 
+  const conteoPosiciones = cargandoPosiciones ? (
+    <span className="skeleton skeleton--line" aria-hidden="true" />
+  ) : errorPosiciones ? (
+    '—'
+  ) : (
+    resumen.totalPosiciones
+  );
+
+  const conteoInstrumentos = cargandoPosiciones ? (
+    <span className="skeleton skeleton--line" aria-hidden="true" />
+  ) : errorPosiciones ? (
+    '—'
+  ) : (
+    resumen.instrumentosDistintos
+  );
+
   return (
     <div className="page">
       <PageHeader
         eyebrow="Resumen"
         titulo={`${saludo()}${usuario ? `, ${primerNombre(usuario.nombre)}` : ''}`}
-        descripcion="Una vista consolidada de tu patrimonio. Los importes se mostrarán cuando existan valuaciones reales."
+        descripcion="Una vista consolidada de tu patrimonio. Los importes de posiciones corresponden al costo registrado, no a una valuación de mercado."
         meta={
           <>
             <span className="dato-chip">
@@ -241,7 +323,10 @@ export function DashboardPage() {
               'No fue posible consultar el conteo de cuentas. Las valuaciones seguirán pendientes.'
             ) : (
               <>
-                {conteoCuentas} {cuentas.length === 1 ? 'cuenta registrada' : 'cuentas registradas'}
+                {conteoCuentas}{' '}
+                {cuentas.length === 1
+                  ? 'cuenta registrada'
+                  : 'cuentas registradas'}
                 {' · '}
                 {cuentasActivas} {cuentasActivas === 1 ? 'activa' : 'activas'}.
                 Los importes no se muestran porque aún no existen valuaciones.
@@ -249,6 +334,47 @@ export function DashboardPage() {
             )}
           </p>
         </FinancialCard>
+      </section>
+
+      <section aria-label="Inversiones registradas">
+        <div className="metric-grid">
+          <MetricCard etiqueta="Posiciones" valor={conteoPosiciones} />
+          <MetricCard
+            etiqueta="Instrumentos distintos"
+            valor={conteoInstrumentos}
+            tono="lavanda"
+          />
+          <MetricCard
+            etiqueta="Costo agregado"
+            valor={
+              cargandoPosiciones ? (
+                <span className="skeleton skeleton--line" aria-hidden="true" />
+              ) : errorPosiciones ? (
+                '—'
+              ) : (
+                <CostosMoneda
+                  costos={resumen.costoPorMoneda}
+                  compacto
+                  vacio="Sin costo"
+                />
+              )
+            }
+            ayuda="Costo registrado por moneda. No es valor de mercado ni rendimiento."
+          />
+          <MetricCard
+            etiqueta="Cuentas activas"
+            valor={
+              cargandoCuentas ? (
+                <span className="skeleton skeleton--line" aria-hidden="true" />
+              ) : errorCuentas ? (
+                '—'
+              ) : (
+                cuentasActivas
+              )
+            }
+            tono="positivo"
+          />
+        </div>
       </section>
 
       <div className="dashboard-grid">
@@ -262,15 +388,59 @@ export function DashboardPage() {
           pie="Azul para la serie patrimonial; verde y rojo para variaciones positivas y negativas."
         />
 
-        <ChartContainer
+        <FinancialCard
           titulo="Distribución por categoría"
-          subtitulo="Participación de cada categoría de activo."
-          periodo="Sin periodo"
-          vacio
-          tituloVacio="Sin distribución disponible"
-          descripcionVacia="La distribución requiere valuaciones por categoría. No se muestran porcentajes estimados."
-          pie="Azul para la serie principal; lavanda para categorías secundarias."
-        />
+          subtitulo="Posiciones e instrumentos reales por categoría de activo."
+          acciones={
+            <Link className="btn btn--secundario btn--sm" to="/activos">
+              Ver Mis activos
+            </Link>
+          }
+          pie="La distribución usa el costo registrado. No representa valor de mercado ni porcentajes estimados."
+        >
+          {cargandoPosiciones ? (
+            <LoadingState mensaje="Consultando posiciones…" compacto />
+          ) : errorPosiciones ? (
+            <ErrorState
+              mensaje={errorPosiciones}
+              titulo="No se pudieron consultar las posiciones"
+              onReintentar={recargarPosiciones}
+            />
+          ) : resumen.distribucionPorCategoria.length === 0 ? (
+            <EmptyState
+              compacta
+              icono={<IconoGrafico />}
+              titulo="Sin distribución disponible"
+              descripcion="Registra posiciones en tus cuentas para ver la distribución por categoría."
+            />
+          ) : (
+            <div className="distribucion-categorias">
+              {resumen.distribucionPorCategoria.map((categoria) => (
+                <div
+                  className="distribucion-categoria"
+                  key={categoria.claseActivoId}
+                >
+                  <span className="distribucion-categoria__nombre">
+                    <strong>{categoria.claseActivoNombre}</strong>
+                    <small>
+                      {categoria.posiciones}{' '}
+                      {categoria.posiciones === 1 ? 'posición' : 'posiciones'} ·{' '}
+                      {categoria.instrumentos}{' '}
+                      {categoria.instrumentos === 1
+                        ? 'instrumento'
+                        : 'instrumentos'}
+                    </small>
+                  </span>
+                  <CostosMoneda
+                    costos={categoria.costoPorMoneda}
+                    compacto
+                    vacio="Sin costo"
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+        </FinancialCard>
       </div>
 
       <div className="dashboard-grid dashboard-grid--ancho">
@@ -282,15 +452,18 @@ export function DashboardPage() {
               Ver Mis activos
             </Link>
           }
-          pie="Los importes y rendimientos se incorporarán cuando el backend exponga las valuaciones correspondientes."
+          pie="Los importes de posiciones son costo de adquisición. La valuación de mercado se incorporará en una entrega posterior."
         >
-          {cargandoCuentas ? (
-            <LoadingState mensaje="Consultando cuentas…" compacto />
-          ) : errorCuentas ? (
+          {cargandoCuentas || cargandoPosiciones ? (
+            <LoadingState mensaje="Consultando inversiones…" compacto />
+          ) : errorCuentas || errorPosiciones ? (
             <ErrorState
-              mensaje={errorCuentas}
-              titulo="No se pudieron consultar las cuentas"
-              onReintentar={recargarCuentas}
+              mensaje={errorCuentas ?? errorPosiciones ?? ''}
+              titulo="No se pudieron consultar las inversiones"
+              onReintentar={() => {
+                recargarCuentas();
+                recargarPosiciones();
+              }}
             />
           ) : (
             <div className="investment-list">
@@ -302,7 +475,9 @@ export function DashboardPage() {
                   <strong>Liquidez y cuentas</strong>
                   <small>
                     {cuentas.length}{' '}
-                    {cuentas.length === 1 ? 'cuenta registrada' : 'cuentas registradas'}
+                    {cuentas.length === 1
+                      ? 'cuenta registrada'
+                      : 'cuentas registradas'}
                   </small>
                 </span>
                 <StatusBadge estado={cuentas.length > 0 ? 'activo' : 'neutral'}>
@@ -310,18 +485,51 @@ export function DashboardPage() {
                 </StatusBadge>
               </div>
 
-              {CATEGORIAS_PENDIENTES.map(({ nombre, descripcion, Icono, ruta }) => (
-                <div className="investment-row" key={ruta}>
-                  <span className="investment-row__icon" aria-hidden="true">
-                    <Icono />
-                  </span>
-                  <span className="investment-row__body">
-                    <strong>{nombre}</strong>
-                    <small>{descripcion}</small>
-                  </span>
-                  <StatusBadge estado="pendiente">Pendiente</StatusBadge>
-                </div>
-              ))}
+              {CATEGORIAS_INVERSION.map(
+                ({ nombre, descripcion, Icono, ruta }) => {
+                  const distribucion = distribucionDe(nombre);
+                  const posiciones = distribucion?.posiciones ?? 0;
+                  return (
+                    <div className="investment-row" key={ruta}>
+                      <span className="investment-row__icon" aria-hidden="true">
+                        <Icono />
+                      </span>
+                      <span className="investment-row__body">
+                        <strong>{nombre}</strong>
+                        <small>
+                          {posiciones}{' '}
+                          {posiciones === 1 ? 'posición' : 'posiciones'} ·{' '}
+                          {descripcion}
+                        </small>
+                      </span>
+                      {posiciones > 0 ? (
+                        <CostosMoneda
+                          costos={distribucion?.costoPorMoneda ?? []}
+                          compacto
+                          vacio="Sin costo"
+                        />
+                      ) : (
+                        <StatusBadge estado="neutral">Sin posiciones</StatusBadge>
+                      )}
+                    </div>
+                  );
+                },
+              )}
+
+              {CATEGORIAS_PENDIENTES.map(
+                ({ nombre, descripcion, Icono, ruta }) => (
+                  <div className="investment-row" key={ruta}>
+                    <span className="investment-row__icon" aria-hidden="true">
+                      <Icono />
+                    </span>
+                    <span className="investment-row__body">
+                      <strong>{nombre}</strong>
+                      <small>{descripcion}</small>
+                    </span>
+                    <StatusBadge estado="pendiente">Pendiente</StatusBadge>
+                  </div>
+                ),
+              )}
             </div>
           )}
         </FinancialCard>

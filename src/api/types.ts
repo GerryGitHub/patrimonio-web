@@ -94,6 +94,138 @@ export interface FiltrosInstituciones {
   activo?: boolean;
 }
 
+export interface ClaseActivo {
+  id: string;
+  nombre: string;
+  descripcion: string | null;
+  activo: boolean;
+}
+
+export interface TipoInstrumento {
+  id: string;
+  claseActivoId: string;
+  claseActivoNombre: string | null;
+  nombre: string;
+  descripcion: string | null;
+  activo: boolean;
+}
+
+export interface Instrumento {
+  id: string;
+  tipoInstrumentoId: string;
+  tipoInstrumentoNombre: string;
+  claseActivoId: string;
+  claseActivoNombre: string;
+  nombre: string;
+  simbolo: string | null;
+  emisor: string | null;
+  mercado: string | null;
+  monedaId: string;
+  monedaCodigo: string;
+  monedaNombre: string;
+  monedaSimbolo: string | null;
+  monedaDecimales: number;
+  identificadorExterno: string | null;
+  isin: string | null;
+  descripcion: string | null;
+  activo: boolean;
+  fechaCreacion: string;
+  fechaActualizacion: string;
+}
+
+export interface DatosInstrumento {
+  tipoInstrumentoId: string;
+  nombre: string;
+  simbolo?: string;
+  emisor?: string;
+  mercado?: string;
+  monedaId: string;
+  identificadorExterno?: string;
+  isin?: string;
+  descripcion?: string;
+}
+
+export interface FiltrosInstrumentos {
+  busqueda?: string;
+  claseActivoId?: string;
+  tipoInstrumentoId?: string;
+  activo?: boolean;
+}
+
+export interface Posicion {
+  id: string;
+  cuentaId: string;
+  cuentaNombre: string;
+  instrumentoId: string;
+  instrumentoNombre: string;
+  instrumentoSimbolo: string | null;
+  tipoInstrumentoId: string;
+  tipoInstrumentoNombre: string;
+  claseActivoId: string;
+  claseActivoNombre: string;
+  cantidad: string;
+  costoUnitario: string;
+  costoTotal: string;
+  monedaId: string;
+  monedaCodigo: string;
+  monedaNombre: string;
+  monedaSimbolo: string | null;
+  monedaDecimales: number;
+  observaciones: string | null;
+  activo: boolean;
+  fechaApertura: string;
+  fechaCreacion: string;
+  fechaActualizacion: string;
+}
+
+export interface CrearPosicionDatos {
+  cuentaId: string;
+  instrumentoId: string;
+  cantidad: string;
+  costoUnitario: string;
+  fechaApertura?: string;
+  observaciones?: string;
+}
+
+export interface ActualizarPosicionDatos {
+  cantidad: string;
+  costoUnitario: string;
+  fechaApertura?: string;
+  observaciones?: string;
+}
+
+export interface FiltrosPosiciones {
+  cuentaId?: string;
+  instrumentoId?: string;
+  claseActivoId?: string;
+  activo?: boolean;
+}
+
+export interface CostoPorMoneda {
+  monedaId: string;
+  codigo: string;
+  nombre: string;
+  simbolo: string | null;
+  decimales: number;
+  costo: string;
+}
+
+export interface DistribucionCategoria {
+  claseActivoId: string;
+  claseActivoNombre: string;
+  posiciones: number;
+  instrumentos: number;
+  costoPorMoneda: CostoPorMoneda[];
+}
+
+export interface ResumenPosiciones {
+  totalPosiciones: number;
+  posicionesActivas: number;
+  instrumentosDistintos: number;
+  costoPorMoneda: CostoPorMoneda[];
+  distribucionPorCategoria: DistribucionCategoria[];
+}
+
 export interface CsrfResponse {
   headerName: string;
   parameterName: string;

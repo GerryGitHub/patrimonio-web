@@ -3,15 +3,18 @@ import { Link, useParams } from 'react-router-dom';
 import { listarCuentas, listarTiposCuenta } from '../api/cuentas';
 import { listarInstituciones } from '../api/instituciones';
 import { listarMonedas, listarPortafolios } from '../api/portafolios';
+import { obtenerResumenPosiciones } from '../api/posiciones';
 import type {
   CuentaFinanciera,
   FiltrosCuentas,
   Institucion,
   Moneda,
   Portafolio,
+  ResumenPosiciones,
   TipoCuenta,
 } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
+import { CostosMoneda } from '../components/CostosMoneda';
 import { DataTable, type ColumnaTabla } from '../components/DataTable';
 import { EmptyState } from '../components/EmptyState';
 import { ErrorState } from '../components/ErrorState';
@@ -27,6 +30,7 @@ import {
   IconoMas,
   IconoMoneda,
   IconoRecargar,
+  IconoRentaFija,
   IconoVacio,
   IconoVolver,
 } from '../components/icons';
@@ -57,6 +61,11 @@ export function PortfolioPage() {
   const [errorCuentas, setErrorCuentas] = useState<string | null>(null);
   const [noEncontrado, setNoEncontrado] = useState(false);
   const [intento, setIntento] = useState(0);
+
+  const [resumen, setResumen] = useState<ResumenPosiciones | null>(null);
+  const [cargandoResumen, setCargandoResumen] = useState(true);
+  const [errorResumen, setErrorResumen] = useState<string | null>(null);
+  const [intentoResumen, setIntentoResumen] = useState(0);
 
   const [filtroInstitucion, setFiltroInstitucion] = useState('');
   const [filtroTipo, setFiltroTipo] = useState('');
@@ -184,6 +193,53 @@ export function PortfolioPage() {
     filtroTipo,
     filtroEstado,
     intento,
+    revision,
+    marcarSesionExpirada,
+  ]);
+
+  useEffect(() => {
+    if (cargandoInicial || noEncontrado) {
+      return;
+    }
+
+    let cancelado = false;
+    setCargandoResumen(true);
+    setErrorResumen(null);
+
+    obtenerResumenPosiciones(portafolioId)
+      .then((datos) => {
+        if (!cancelado) {
+          setResumen(datos);
+        }
+      })
+      .catch((fallo: unknown) => {
+        if (cancelado) {
+          return;
+        }
+        if (esNoAutenticado(fallo)) {
+          marcarSesionExpirada();
+          return;
+        }
+        if (esNoEncontrado(fallo)) {
+          setNoEncontrado(true);
+          return;
+        }
+        setErrorResumen(mensajeDeError(fallo, 'posicion'));
+      })
+      .finally(() => {
+        if (!cancelado) {
+          setCargandoResumen(false);
+        }
+      });
+
+    return () => {
+      cancelado = true;
+    };
+  }, [
+    portafolioId,
+    cargandoInicial,
+    noEncontrado,
+    intentoResumen,
     revision,
     marcarSesionExpirada,
   ]);
@@ -324,6 +380,15 @@ export function PortfolioPage() {
             <>
               <Link
                 className="btn btn--secundario"
+                to={`/activos/liquidez/${encodeURIComponent(
+                  portafolioId,
+                )}/posiciones`}
+              >
+                <IconoRentaFija />
+                Posiciones
+              </Link>
+              <Link
+                className="btn btn--secundario"
                 to="/configuracion/instituciones"
               >
                 <IconoInstitucion />
@@ -455,6 +520,81 @@ export function PortfolioPage() {
               <MetricCard etiqueta="Monedas" valor={monedasDistintas} />
             </div>
           </section>
+
+          <FinancialCard
+            titulo="Posiciones del portafolio"
+            subtitulo="Costo registrado de las posiciones. No es valor de mercado."
+            acciones={
+              <Link
+                className="btn btn--secundario btn--sm"
+                to={`/activos/liquidez/${encodeURIComponent(
+                  portafolioId,
+                )}/posiciones`}
+              >
+                <IconoRentaFija />
+                Ver posiciones
+              </Link>
+            }
+            pie="El costo agregado se muestra por moneda. No se suman monedas distintas sin conversión."
+          >
+            {cargandoResumen ? (
+              <div className="section-stack" aria-hidden="true">
+                <Esqueleto className="esqueleto--linea" />
+                <Esqueleto className="esqueleto--linea" />
+              </div>
+            ) : errorResumen ? (
+              <ErrorState
+                mensaje={errorResumen}
+                titulo="No se pudieron consultar las posiciones"
+                onReintentar={() => setIntentoResumen((valor) => valor + 1)}
+              />
+            ) : resumen && resumen.totalPosiciones > 0 ? (
+              <div className="metric-grid">
+                <MetricCard
+                  etiqueta="Posiciones"
+                  valor={resumen.totalPosiciones}
+                />
+                <MetricCard
+                  etiqueta="Activas"
+                  valor={resumen.posicionesActivas}
+                  tono="positivo"
+                />
+                <MetricCard
+                  etiqueta="Instrumentos distintos"
+                  valor={resumen.instrumentosDistintos}
+                  tono="lavanda"
+                />
+                <MetricCard
+                  etiqueta="Costo agregado"
+                  valor={
+                    <CostosMoneda
+                      costos={resumen.costoPorMoneda}
+                      compacto
+                      vacio="Sin costo"
+                    />
+                  }
+                />
+              </div>
+            ) : (
+              <EmptyState
+                compacta
+                icono={<IconoRentaFija />}
+                titulo="Este portafolio no tiene posiciones"
+                descripcion="Registra la posición inicial de un instrumento en una de sus cuentas para ver el resumen aquí."
+                accion={
+                  <Link
+                    className="btn btn--primario"
+                    to={`/activos/liquidez/${encodeURIComponent(
+                      portafolioId,
+                    )}/posiciones/nueva`}
+                  >
+                    <IconoMas />
+                    Registrar posición
+                  </Link>
+                }
+              />
+            )}
+          </FinancialCard>
 
           <FinancialCard
             titulo="Cuentas financieras"

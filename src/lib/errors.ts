@@ -7,7 +7,9 @@ export type ContextoError =
   | 'sesion'
   | 'portafolio'
   | 'institucion'
-  | 'cuenta';
+  | 'cuenta'
+  | 'instrumento'
+  | 'posicion';
 
 /** Indica si el error corresponde a una sesión ausente o caducada. */
 export function esNoAutenticado(error: unknown): boolean {
@@ -48,6 +50,12 @@ export function mensajeDeError(
         if (contexto === 'cuenta') {
           return 'Revisa los datos de la cuenta: el nombre, la referencia o la fecha no son válidos.';
         }
+        if (contexto === 'instrumento') {
+          return 'Revisa los datos del instrumento: el nombre, el tipo, la moneda o el ISIN no son válidos.';
+        }
+        if (contexto === 'posicion') {
+          return 'Revisa los datos de la posición: la cantidad, el costo o la fecha no son válidos.';
+        }
         return 'Revisa los datos introducidos: el nombre, el correo o la contraseña no son válidos.';
       case 'MONEDA_INVALIDA':
         return 'La moneda seleccionada no está disponible. Actualiza la página e inténtalo de nuevo.';
@@ -61,8 +69,19 @@ export function mensajeDeError(
         return 'Revisa los datos de la cuenta: la institución, el tipo o la moneda no son válidos.';
       case 'TIPO_CUENTA_INVALIDO':
         return 'El tipo de cuenta seleccionado no está disponible. Actualiza la página e inténtalo de nuevo.';
+      case 'INSTRUMENTO_DUPLICADO':
+        return 'Ya existe un instrumento con ese símbolo en la moneda o con ese ISIN activo.';
+      case 'INSTRUMENTO_INVALIDO':
+        return 'Revisa los datos del instrumento: el nombre, el tipo, la moneda o el ISIN no son válidos.';
+      case 'POSICION_INVALIDA':
+        return 'Revisa la posición: la cantidad, el costo unitario o la fecha no son válidos.';
+      case 'POSICION_INCOMPATIBLE':
+        return 'La cuenta seleccionada no admite este tipo de instrumento. Elige otra cuenta o instrumento.';
       case 'ACCESO_DENEGADO':
-        return contexto === 'cuenta' || contexto === 'institucion'
+        return contexto === 'cuenta' ||
+          contexto === 'institucion' ||
+          contexto === 'instrumento' ||
+          contexto === 'posicion'
           ? 'No tienes permiso para modificar este recurso.'
           : 'No se pudo verificar la seguridad de la solicitud. Recarga la página e inténtalo de nuevo.';
       case 'NO_ENCONTRADO':

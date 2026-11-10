@@ -8,7 +8,11 @@ import {
 import { AuthProvider } from './auth/AuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { PublicOnlyRoute } from './components/PublicOnlyRoute';
-import { PortfolioProvider } from './portfolio/PortfolioContext';
+import {
+  PORTAFOLIO_TODOS,
+  PortfolioProvider,
+  usePortafolios,
+} from './portfolio/PortfolioContext';
 import { ActivityPage } from './pages/ActivityPage';
 import { AssetCategoryPage } from './pages/AssetCategoryPage';
 import { AssetsPage } from './pages/AssetsPage';
@@ -17,11 +21,17 @@ import { CuentaFormPage } from './pages/CuentaFormPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { FinancingPage } from './pages/FinancingPage';
 import { InstitucionesPage } from './pages/InstitucionesPage';
+import { InstrumentoDetailPage } from './pages/InstrumentoDetailPage';
+import { InstrumentoFormPage } from './pages/InstrumentoFormPage';
+import { InstrumentosPage } from './pages/InstrumentosPage';
 import { LiquidezPage } from './pages/LiquidezPage';
 import { LoginPage } from './pages/LoginPage';
 import { MarketsPage } from './pages/MarketsPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { PortfolioPage } from './pages/PortfolioPage';
+import { PosicionDetailPage } from './pages/PosicionDetailPage';
+import { PosicionFormPage } from './pages/PosicionFormPage';
+import { PosicionesPage } from './pages/PosicionesPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { SettingsPage } from './pages/SettingsPage';
 
@@ -71,6 +81,25 @@ function RedirigirEdicionCuenta() {
   );
 }
 
+function RedirigirPosiciones() {
+  const { portafolios, seleccionadoId } = usePortafolios();
+  const destino =
+    seleccionadoId && seleccionadoId !== PORTAFOLIO_TODOS
+      ? seleccionadoId
+      : portafolios[0]?.id;
+
+  if (!destino) {
+    return <Navigate to="/activos/liquidez" replace />;
+  }
+
+  return (
+    <Navigate
+      to={`/activos/liquidez/${encodeURIComponent(destino)}/posiciones`}
+      replace
+    />
+  );
+}
+
 export function App() {
   return (
     <BrowserRouter>
@@ -104,8 +133,39 @@ export function App() {
                 element={<CuentaFormPage />}
               />
               <Route
+                path="/activos/liquidez/:portafolioId/posiciones"
+                element={<PosicionesPage />}
+              />
+              <Route
+                path="/activos/liquidez/:portafolioId/posiciones/nueva"
+                element={<PosicionFormPage />}
+              />
+              <Route
+                path="/activos/liquidez/:portafolioId/posiciones/:posicionId"
+                element={<PosicionDetailPage />}
+              />
+              <Route
+                path="/activos/liquidez/:portafolioId/posiciones/:posicionId/editar"
+                element={<PosicionFormPage />}
+              />
+              <Route path="/posiciones" element={<RedirigirPosiciones />} />
+              <Route
                 path="/activos/:categoria"
                 element={<AssetCategoryPage />}
+              />
+
+              <Route path="/instrumentos" element={<InstrumentosPage />} />
+              <Route
+                path="/instrumentos/nuevo"
+                element={<InstrumentoFormPage />}
+              />
+              <Route
+                path="/instrumentos/:instrumentoId"
+                element={<InstrumentoDetailPage />}
+              />
+              <Route
+                path="/instrumentos/:instrumentoId/editar"
+                element={<InstrumentoFormPage />}
               />
 
               <Route path="/mercados" element={<MarketsPage />} />
