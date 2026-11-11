@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useParams } from 'react-router-dom';
 import {
   cambiarEstadoCuenta,
@@ -7,30 +7,39 @@ import {
 } from '../api/cuentas';
 import { listarInstituciones } from '../api/instituciones';
 import { listarMonedas, listarPortafolios } from '../api/portafolios';
+import { listarPosiciones } from '../api/posiciones';
 import type {
+  CostoPorMoneda,
   CuentaFinanciera,
   Institucion,
   Moneda,
   Portafolio,
+  Posicion,
   TipoCuenta,
 } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { ConfirmationDialog } from '../components/ConfirmationDialog';
+import { CostosMoneda } from '../components/CostosMoneda';
 import { EmptyState } from '../components/EmptyState';
 import { ErrorState } from '../components/ErrorState';
 import { FinancialCard } from '../components/FinancialCard';
+import { MetricCard } from '../components/MetricCard';
 import { PageHeader } from '../components/PageHeader';
+import { PosicionesTabla } from '../components/PosicionesTabla';
 import { StatusBadge } from '../components/StatusBadge';
 import { Alerta, Boton, Esqueleto } from '../components/ui';
 import {
   IconoCuenta,
   IconoEditar,
+  IconoMas,
   IconoPower,
   IconoRecargar,
+  IconoRentaFija,
   IconoVacio,
   IconoVolver,
 } from '../components/icons';
 import { etiquetaTipoInstitucion } from '../lib/catalogos';
+import { sumarDecimales } from '../lib/decimales';
 import {
   esNoAutenticado,
   esNoEncontrado,
@@ -63,6 +72,11 @@ export function CuentaDetailPage() {
   const [cambiandoEstado, setCambiandoEstado] = useState(false);
   const [errorEstado, setErrorEstado] = useState<string | null>(null);
 
+  const [posiciones, setPosiciones] = useState<Posicion[]>([]);
+  const [cargandoPosiciones, setCargandoPosiciones] = useState(false);
+  const [errorPosiciones, setErrorPosiciones] = useState<string | null>(null);
+  const [intentoPosiciones, setIntentoPosiciones] = useState(0);
+
   const estadoNavegacion = location.state as EstadoNavegacion | null;
   const [aviso, setAviso] = useState<string | null>(() =>
     estadoNavegacion?.creada
@@ -72,7 +86,15 @@ export function CuentaDetailPage() {
         : null,
   );
 
-  const recargar = useCallback(() => setIntento((valor) => valor + 1), []);
+  const recargar = useCallback(() => {
+    setIntento((valor) => valor + 1);
+    setIntentoPosiciones((valor) => valor + 1);
+  }, []);
+
+  const recargarPosiciones = useCallback(
+    () => setIntentoPosiciones((valor) => valor + 1),
+    [],
+  );
 
   useEffect(() => {
     let cancelado = false;
@@ -141,6 +163,60 @@ export function CuentaDetailPage() {
     };
   }, [portafolioId, cuentaId, intento, marcarSesionExpirada]);
 
+  const cuentaLista = cuenta !== null;
+
+  useEffect(() => {
+    if (!cuentaLista) {
+      return;
+    }
+
+    let cancelado = false;
+
+    async function cargarPosicionesDeCuenta() {
+      setCargandoPosiciones(true);
+      setErrorPosiciones(null);
+
+      try {
+        const registradas = await listarPosiciones(portafolioId, { cuentaId });
+
+        if (cancelado) {
+          return;
+        }
+
+        // El backend ya filtra por cuenta. Se vuelve a comprobar para no
+        // mostrar posiciones ajenas si la respuesta llegara mezclada.
+        setPosiciones(
+          registradas.filter((posicion) => posicion.cuentaId === cuentaId),
+        );
+      } catch (fallo) {
+        if (cancelado) {
+          return;
+        }
+        if (esNoAutenticado(fallo)) {
+          marcarSesionExpirada();
+          return;
+        }
+        setErrorPosiciones(mensajeDeError(fallo, 'posicion'));
+      } finally {
+        if (!cancelado) {
+          setCargandoPosiciones(false);
+        }
+      }
+    }
+
+    cargarPosicionesDeCuenta();
+
+    return () => {
+      cancelado = true;
+    };
+  }, [
+    cuentaLista,
+    portafolioId,
+    cuentaId,
+    intentoPosiciones,
+    marcarSesionExpirada,
+  ]);
+
   async function cambiarEstado(nuevoActivo: boolean) {
     setCambiandoEstado(true);
     setErrorEstado(null);
@@ -179,6 +255,40 @@ export function CuentaDetailPage() {
   const enlacePortafolio = `/activos/liquidez/${encodeURIComponent(
     portafolioId,
   )}`;
+
+  const resumenPosiciones = useMemo(() => {
+    const activas = posiciones.filter((posicion) => posicion.activo).length;
+    const costoPorMoneda: CostoPorMoneda[] = [];
+
+    for (const posicion of posiciones) {
+      const existente = costoPorMoneda.find(
+        (costo) => costo.monedaId === posicion.monedaId,
+      );
+
+      if (existente) {
+        existente.costo = sumarDecimales(
+          existente.costo,
+          posicion.costoTotal,
+        );
+      } else {
+        costoPorMoneda.push({
+          monedaId: posicion.monedaId,
+          codigo: posicion.monedaCodigo,
+          nombre: posicion.monedaNombre,
+          simbolo: posicion.monedaSimbolo,
+          decimales: posicion.monedaDecimales,
+          costo: posicion.costoTotal,
+        });
+      }
+    }
+
+    return {
+      total: posiciones.length,
+      activas,
+      inactivas: posiciones.length - activas,
+      costoPorMoneda,
+    };
+  }, [posiciones]);
 
   return (
     <div className="page">
@@ -358,6 +468,100 @@ export function CuentaDetailPage() {
               </div>
             </dl>
           </div>
+        </FinancialCard>
+      ) : null}
+
+      {cuenta ? (
+        <FinancialCard
+          id="titulo-posiciones-cuenta"
+          titulo="Posiciones de inversión"
+          subtitulo="Posiciones registradas en esta cuenta. El costo es el registrado y no representa valor de mercado."
+          acciones={
+            <>
+              <Boton
+                variante="secundario"
+                onClick={recargarPosiciones}
+                disabled={cargandoPosiciones}
+                aria-label="Actualizar posiciones de la cuenta"
+              >
+                <IconoRecargar />
+                Actualizar
+              </Boton>
+              <Link
+                className="btn btn--secundario"
+                to={`${enlacePortafolio}/posiciones/nueva`}
+              >
+                <IconoMas />
+                Registrar posición
+              </Link>
+            </>
+          }
+          pie="El costo agregado se muestra por moneda. No se suman monedas distintas ni se convierten divisas."
+        >
+          {cargandoPosiciones ? (
+            <div className="section-stack" aria-hidden="true">
+              <Esqueleto className="esqueleto--linea" />
+              <Esqueleto className="esqueleto--linea" />
+              <Esqueleto className="esqueleto--linea" />
+            </div>
+          ) : errorPosiciones ? (
+            <ErrorState
+              mensaje={errorPosiciones}
+              titulo="No se pudieron consultar las posiciones"
+              onReintentar={recargarPosiciones}
+            />
+          ) : resumenPosiciones.total === 0 ? (
+            <EmptyState
+              compacta
+              icono={<IconoRentaFija />}
+              titulo="Esta cuenta no tiene posiciones"
+              descripcion="Registra la posición inicial de un instrumento para dar seguimiento a esta cuenta."
+              accion={
+                <Link
+                  className="btn btn--primario"
+                  to={`${enlacePortafolio}/posiciones/nueva`}
+                >
+                  <IconoMas />
+                  Registrar posición
+                </Link>
+              }
+            />
+          ) : (
+            <div className="section-stack">
+              <div className="metric-grid">
+                <MetricCard
+                  etiqueta="Posiciones"
+                  valor={resumenPosiciones.total}
+                />
+                <MetricCard
+                  etiqueta="Activas"
+                  valor={resumenPosiciones.activas}
+                  tono="positivo"
+                />
+                <MetricCard
+                  etiqueta="Inactivas"
+                  valor={resumenPosiciones.inactivas}
+                  tono="lavanda"
+                />
+                <MetricCard
+                  etiqueta="Costo por moneda"
+                  valor={
+                    <CostosMoneda
+                      costos={resumenPosiciones.costoPorMoneda}
+                      compacto
+                      vacio="Sin costo"
+                    />
+                  }
+                />
+              </div>
+
+              <PosicionesTabla
+                portafolioId={portafolioId}
+                posiciones={posiciones}
+                vacio="Esta cuenta no tiene posiciones."
+              />
+            </div>
+          )}
         </FinancialCard>
       ) : null}
 
