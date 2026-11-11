@@ -10,7 +10,8 @@ export type ContextoError =
   | 'cuenta'
   | 'instrumento'
   | 'posicion'
-  | 'movimiento';
+  | 'movimiento'
+  | 'patrimonio';
 
 /** Indica si el error corresponde a una sesión ausente o caducada. */
 export function esNoAutenticado(error: unknown): boolean {
@@ -59,6 +60,9 @@ export function mensajeDeError(
         }
         if (contexto === 'movimiento') {
           return 'Revisa los datos del movimiento: el tipo, la cantidad, el precio o las fechas no son válidos.';
+        }
+        if (contexto === 'patrimonio') {
+          return 'Revisa los filtros del centro de patrimonio: la moneda, el período o la dimensión no son válidos.';
         }
         return 'Revisa los datos introducidos: el nombre, el correo o la contraseña no son válidos.';
       case 'MONEDA_INVALIDA':

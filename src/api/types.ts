@@ -375,3 +375,237 @@ export interface RegistroDatos {
   email: string;
   password: string;
 }
+
+// ---------------------------------------------------------------------------
+// Centro de Patrimonio (Entrega 4)
+// ---------------------------------------------------------------------------
+
+export type EstadoInformacion =
+  | 'DISPONIBLE'
+  | 'PARCIAL'
+  | 'NO_DISPONIBLE';
+
+export type PeriodoPatrimonial = '1M' | '3M' | '6M' | '1A' | 'TODO';
+
+export type DimensionDistribucion =
+  | 'CLASE_ACTIVO'
+  | 'TIPO_INSTRUMENTO'
+  | 'INSTITUCION'
+  | 'CUENTA'
+  | 'MONEDA';
+
+export type GranularidadEvolucion = 'DIARIA' | 'SEMANAL' | 'MENSUAL';
+
+export interface MonedaPatrimonio {
+  id: string;
+  codigo: string;
+  nombre: string;
+  simbolo: string | null;
+  decimales: number;
+}
+
+export interface ImporteMonedaPatrimonio {
+  monedaId: string;
+  codigo: string;
+  nombre: string;
+  simbolo: string | null;
+  decimales: number;
+  importe: string;
+}
+
+export interface IndicadorPatrimonio {
+  codigo: string;
+  etiqueta: string;
+  estado: EstadoInformacion;
+  motivo: string | null;
+  importes: ImporteMonedaPatrimonio[];
+}
+
+export interface PortafolioPatrimonio {
+  id: string;
+  nombre: string;
+  monedaBaseCodigo: string;
+  monedaBaseDecimales: number;
+}
+
+export interface CoberturaPatrimonio {
+  incluye: string[];
+  excluye: string[];
+}
+
+export interface MetaPatrimonio {
+  portafolios: PortafolioPatrimonio[];
+  monedaFiltro: string | null;
+  periodo: PeriodoPatrimonial;
+  generadoEn: string;
+  estado: EstadoInformacion;
+  cobertura: CoberturaPatrimonio;
+  limitaciones: string[];
+}
+
+export interface ResumenPatrimonio {
+  patrimonioNeto: IndicadorPatrimonio;
+  activosRegistrados: IndicadorPatrimonio;
+  pasivos: IndicadorPatrimonio;
+  capitalInvertido: IndicadorPatrimonio;
+  capitalAportado: IndicadorPatrimonio;
+  liquidezDisponible: IndicadorPatrimonio;
+  resultadoRealizado: IndicadorPatrimonio;
+  resultadoNoRealizado: IndicadorPatrimonio;
+}
+
+export interface SegmentoDistribucionPatrimonio {
+  clave: string;
+  nombre: string;
+  importe: string;
+  porcentaje: string | null;
+  posiciones: number;
+  instrumentos: number;
+}
+
+export interface DistribucionMonedaPatrimonio {
+  moneda: MonedaPatrimonio;
+  total: string;
+  segmentos: SegmentoDistribucionPatrimonio[];
+}
+
+export interface DistribucionPatrimonio {
+  dimension: DimensionDistribucion;
+  porMoneda: DistribucionMonedaPatrimonio[];
+  limitaciones: string[];
+}
+
+export interface PuntoEvolucionPatrimonio {
+  fecha: string;
+  valor: string;
+}
+
+export interface SerieMonedaPatrimonio {
+  moneda: MonedaPatrimonio;
+  puntos: PuntoEvolucionPatrimonio[];
+}
+
+export interface SerieEvolucionPatrimonio {
+  codigo: string;
+  etiqueta: string;
+  estado: EstadoInformacion;
+  motivo: string | null;
+  porMoneda: SerieMonedaPatrimonio[];
+}
+
+export interface DesgloseClasePatrimonio {
+  claseActivoId: string | null;
+  claseActivoNombre: string;
+  porMoneda: SerieMonedaPatrimonio[];
+}
+
+export interface EvolucionPatrimonio {
+  periodo: PeriodoPatrimonial;
+  desde: string;
+  hasta: string;
+  granularidad: GranularidadEvolucion;
+  series: SerieEvolucionPatrimonio[];
+  desglosePorClase: DesgloseClasePatrimonio[];
+  limitaciones: string[];
+}
+
+export interface RendimientosPatrimonio {
+  desde: string;
+  hasta: string;
+  resultadoRealizado: IndicadorPatrimonio;
+  comisionesPagadas: IndicadorPatrimonio;
+  impuestosPagados: IndicadorPatrimonio;
+  interesesRecibidos: IndicadorPatrimonio;
+  dividendosRecibidos: IndicadorPatrimonio;
+  resultadoNoRealizado: IndicadorPatrimonio;
+  rendimientoPorcentual: IndicadorPatrimonio;
+  metodologiasPrevistas: string[];
+  nota: string;
+}
+
+export interface CuentaLiquidezPatrimonio {
+  cuentaId: string;
+  nombre: string;
+  institucionNombre: string;
+  moneda: MonedaPatrimonio;
+  activa: boolean;
+  saldo: string | null;
+}
+
+export interface EfectivoCuentaPatrimonio {
+  estado: EstadoInformacion;
+  motivo: string | null;
+  cuentas: CuentaLiquidezPatrimonio[];
+}
+
+export interface EfectivoInstitucionPatrimonio {
+  estado: EstadoInformacion;
+  motivo: string | null;
+  segmentos: SegmentoDistribucionPatrimonio[];
+}
+
+export interface EventoPatrimonio {
+  id: string;
+  tipo: string;
+  fecha: string;
+  descripcion: string;
+  importe: string | null;
+  moneda: MonedaPatrimonio | null;
+  origen: string;
+  posicionId: string | null;
+  contratoId: string | null;
+}
+
+export interface EventosPatrimonio {
+  estado: EstadoInformacion;
+  motivo: string | null;
+  eventos: EventoPatrimonio[];
+}
+
+export interface LiquidezPatrimonio {
+  estado: EstadoInformacion;
+  efectivoPorCuenta: EfectivoCuentaPatrimonio;
+  efectivoPorInstitucion: EfectivoInstitucionPatrimonio;
+  disponibilidadInmediata: IndicadorPatrimonio;
+  capitalComprometido: IndicadorPatrimonio;
+  proximosVencimientos: EventosPatrimonio;
+}
+
+export interface CentroPatrimonio {
+  meta: MetaPatrimonio;
+  resumen: ResumenPatrimonio;
+  distribucion: DistribucionPatrimonio;
+  evolucion: EvolucionPatrimonio;
+  rendimientos: RendimientosPatrimonio;
+  liquidez: LiquidezPatrimonio;
+  eventos: EventosPatrimonio;
+}
+
+export interface SnapshotPatrimonio {
+  id: string;
+  portafolioId: string;
+  fecha: string;
+  moneda: MonedaPatrimonio;
+  capitalInvertido: string;
+  resultadoRealizado: string;
+  efectivo: string | null;
+  pasivos: string | null;
+  valorMercado: string | null;
+  patrimonioNeto: string | null;
+  cobertura: string;
+  limitaciones: string | null;
+  fuente: string;
+  fechaCreacion: string;
+}
+
+export interface FiltrosPatrimonio {
+  moneda?: string;
+  periodo?: PeriodoPatrimonial;
+  dimension?: DimensionDistribucion;
+  desde?: string;
+  hasta?: string;
+}
+
+export interface CrearSnapshotPatrimonioDatos {
+  fecha?: string;
+}

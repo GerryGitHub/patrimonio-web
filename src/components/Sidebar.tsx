@@ -89,7 +89,7 @@ export function Sidebar({ abierto, onCerrar }: SidebarProps) {
           }
         >
           <IconoResumen />
-          <span>Resumen</span>
+          <span>Centro de Patrimonio</span>
         </NavLink>
 
         <div className="sidebar__group">

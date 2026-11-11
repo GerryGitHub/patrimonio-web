@@ -22,7 +22,7 @@ const TITULOS: Array<{ prefijo: string; titulo: string }> = [
   { prefijo: '/actividad', titulo: 'Actividad' },
   { prefijo: '/financiamiento', titulo: 'Financiamiento' },
   { prefijo: '/configuracion', titulo: 'Configuración' },
-  { prefijo: '/', titulo: 'Resumen' },
+  { prefijo: '/', titulo: 'Centro de Patrimonio' },
 ];
 
 function tituloDeSeccion(pathname: string): string {
