@@ -32,6 +32,18 @@ export function esDecimalNoNegativo(valor: string): boolean {
   return !descompuesto.negativo || cero;
 }
 
+/** Indica si el texto representa un decimal mayor que cero. */
+export function esDecimalPositivo(valor: string): boolean {
+  const descompuesto = descomponer(valor);
+  if (!descompuesto) {
+    return false;
+  }
+  const cero =
+    descompuesto.entero.replace(/0/g, '') === '' &&
+    descompuesto.fraccion.replace(/0/g, '') === '';
+  return !descompuesto.negativo && !cero;
+}
+
 /**
  * Quita ceros sobrantes y normaliza el signo para mostrarlo en formularios.
  *
@@ -86,6 +98,12 @@ export function sumarDecimales(a: string, b: string): string {
   );
 }
 
+/** Resta exacta de dos decimales representados como texto. */
+export function restarDecimales(a: string, b: string): string {
+  const negativo = b.trim().startsWith('-') ? b.trim().slice(1) : `-${b.trim()}`;
+  return sumarDecimales(a, negativo);
+}
+
 /** Multiplicación exacta de dos decimales representados como texto. */
 export function multiplicarDecimales(a: string, b: string): string {
   const primero = descomponer(a);
@@ -98,6 +116,27 @@ export function multiplicarDecimales(a: string, b: string): string {
     aEnteroEscalado(primero, primero.fraccion.length) *
     aEnteroEscalado(segundo, segundo.fraccion.length);
   return desdeEnteroEscalado(producto, escala);
+}
+
+/**
+ * Compara dos decimales exactos.
+ *
+ * <p>Devuelve un número negativo si {@code a < b}, cero si son iguales y un
+ * número positivo si {@code a > b}. No usa coma flotante.</p>
+ */
+export function compararDecimales(a: string, b: string): number {
+  const primero = descomponer(a);
+  const segundo = descomponer(b);
+  if (!primero || !segundo) {
+    return 0;
+  }
+  const escala = Math.max(primero.fraccion.length, segundo.fraccion.length);
+  const izquierda = aEnteroEscalado(primero, escala);
+  const derecha = aEnteroEscalado(segundo, escala);
+  if (izquierda === derecha) {
+    return 0;
+  }
+  return izquierda < derecha ? -1 : 1;
 }
 
 function formatearConDecimales(

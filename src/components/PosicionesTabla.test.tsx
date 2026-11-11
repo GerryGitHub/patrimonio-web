@@ -18,6 +18,7 @@ const posicion: Posicion = {
   cantidad: '3.5',
   costoUnitario: '420.75',
   costoTotal: '1472.625',
+  resultadoRealizado: '0.0000000000',
   monedaId: 'usd',
   monedaCodigo: 'USD',
   monedaNombre: 'Dólar estadounidense',
@@ -26,6 +27,7 @@ const posicion: Posicion = {
   observaciones: null,
   activo: true,
   fechaApertura: '2025-02-12',
+  fechaUltimoMovimiento: null,
   fechaCreacion: '2025-02-12T10:00:00Z',
   fechaActualizacion: '2025-02-12T10:00:00Z',
 };

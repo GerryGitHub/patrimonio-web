@@ -15,6 +15,7 @@ describe('inversiones', () => {
       posicionesActivas: 0,
       instrumentosDistintos: 0,
       costoPorMoneda: [],
+      resultadoPorMoneda: [],
       distribucionPorCategoria: [],
     });
   });
@@ -71,6 +72,62 @@ describe('inversiones', () => {
         simbolo: '$',
         decimales: 2,
         costo: '3327.625',
+      },
+    ]);
+  });
+
+  it('suma los resultados realizados solo dentro de la misma moneda', () => {
+    const combinado = combinarResumenes([
+      resumen({
+        resultadoPorMoneda: [
+          {
+            monedaId: 'usd',
+            codigo: 'USD',
+            nombre: 'Dólar estadounidense',
+            simbolo: '$',
+            decimales: 2,
+            resultado: '125.50',
+          },
+        ],
+      }),
+      resumen({
+        resultadoPorMoneda: [
+          {
+            monedaId: 'usd',
+            codigo: 'USD',
+            nombre: 'Dólar estadounidense',
+            simbolo: '$',
+            decimales: 2,
+            resultado: '-25.25',
+          },
+          {
+            monedaId: 'mxn',
+            codigo: 'MXN',
+            nombre: 'Peso mexicano',
+            simbolo: '$',
+            decimales: 2,
+            resultado: '-40.00',
+          },
+        ],
+      }),
+    ]);
+
+    expect(combinado.resultadoPorMoneda).toEqual([
+      {
+        monedaId: 'mxn',
+        codigo: 'MXN',
+        nombre: 'Peso mexicano',
+        simbolo: '$',
+        decimales: 2,
+        resultado: '-40.00',
+      },
+      {
+        monedaId: 'usd',
+        codigo: 'USD',
+        nombre: 'Dólar estadounidense',
+        simbolo: '$',
+        decimales: 2,
+        resultado: '100.25',
       },
     ]);
   });

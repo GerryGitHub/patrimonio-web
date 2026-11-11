@@ -9,7 +9,8 @@ export type ContextoError =
   | 'institucion'
   | 'cuenta'
   | 'instrumento'
-  | 'posicion';
+  | 'posicion'
+  | 'movimiento';
 
 /** Indica si el error corresponde a una sesión ausente o caducada. */
 export function esNoAutenticado(error: unknown): boolean {
@@ -56,6 +57,9 @@ export function mensajeDeError(
         if (contexto === 'posicion') {
           return 'Revisa los datos de la posición: la cantidad, el costo o la fecha no son válidos.';
         }
+        if (contexto === 'movimiento') {
+          return 'Revisa los datos del movimiento: el tipo, la cantidad, el precio o las fechas no son válidos.';
+        }
         return 'Revisa los datos introducidos: el nombre, el correo o la contraseña no son válidos.';
       case 'MONEDA_INVALIDA':
         return 'La moneda seleccionada no está disponible. Actualiza la página e inténtalo de nuevo.';
@@ -77,11 +81,24 @@ export function mensajeDeError(
         return 'Revisa la posición: la cantidad, el costo unitario o la fecha no son válidos.';
       case 'POSICION_INCOMPATIBLE':
         return 'La cuenta seleccionada no admite este tipo de instrumento. Elige otra cuenta o instrumento.';
+      case 'POSICION_CON_HISTORIAL':
+        return 'La posición ya tiene movimientos confirmados. Registra un ajuste o una reversión en lugar de editar la cantidad o el costo.';
+      case 'MOVIMIENTO_INVALIDO':
+        return 'El movimiento no cumple las reglas de la posición: revisa la cantidad, el precio, las fechas o el costo del ajuste.';
+      case 'MOVIMIENTO_NO_REVERSIBLE':
+        return 'Este movimiento no puede revertirse. Solo se revierten movimientos confirmados que no sean reversiones.';
+      case 'MOVIMIENTO_YA_REVERTIDO':
+        return 'Este movimiento ya fue revertido. Consulta el historial para ver la reversión.';
+      case 'IDEMPOTENCIA_CONFLICTO':
+        return 'La operación ya se registró con otros datos. Actualiza el historial e inténtalo de nuevo.';
+      case 'CONFLICTO_CONCURRENCIA':
+        return 'Otro cambio se registró al mismo tiempo. Actualiza la posición e inténtalo de nuevo.';
       case 'ACCESO_DENEGADO':
         return contexto === 'cuenta' ||
           contexto === 'institucion' ||
           contexto === 'instrumento' ||
-          contexto === 'posicion'
+          contexto === 'posicion' ||
+          contexto === 'movimiento'
           ? 'No tienes permiso para modificar este recurso.'
           : 'No se pudo verificar la seguridad de la solicitud. Recarga la página e inténtalo de nuevo.';
       case 'NO_ENCONTRADO':

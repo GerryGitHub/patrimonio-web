@@ -1,5 +1,9 @@
-import type { TipoInstitucion } from '../api/types';
-import { esDecimalNoNegativo } from './decimales';
+import type { TipoInstitucion, TipoMovimiento } from '../api/types';
+import {
+  compararDecimales,
+  esDecimalNoNegativo,
+  esDecimalPositivo,
+} from './decimales';
 import { fechaHoyIso } from './format';
 
 const PATRON_EMAIL = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
@@ -321,6 +325,144 @@ export function validarPosicion(datos: {
     fechaApertura:
       datos.fechaApertura && datos.fechaApertura > hoy
         ? 'La fecha de apertura no puede ser posterior a hoy.'
+        : undefined,
+    observaciones:
+      observaciones.length > 500
+        ? 'Las observaciones no pueden superar los 500 caracteres.'
+        : undefined,
+  };
+}
+
+export interface ErroresMovimiento {
+  tipo?: string;
+  cantidad?: string;
+  precioUnitario?: string;
+  comisiones?: string;
+  impuestos?: string;
+  tipoCambio?: string;
+  costoTotalAjuste?: string;
+  fechaOperacion?: string;
+  fechaLiquidacion?: string;
+  observaciones?: string;
+}
+
+const TIPOS_CON_PRECIO: TipoMovimiento[] = ['APERTURA', 'COMPRA', 'VENTA'];
+const TIPOS_AJUSTE: TipoMovimiento[] = [
+  'AJUSTE_POSITIVO',
+  'AJUSTE_NEGATIVO',
+];
+
+/**
+ * Valida los datos de un movimiento antes de enviarlo.
+ *
+ * <p>Los importes derivados (bruto, neto y costo aplicado) no se envían: los
+ * calcula el motor. La cantidad disponible solo se usa para avisar de una venta
+ * que supera la tenencia actual.</p>
+ */
+export function validarMovimiento(
+  datos: {
+    tipo: TipoMovimiento | '';
+    cantidad: string;
+    precioUnitario: string;
+    comisiones: string;
+    impuestos: string;
+    tipoCambio: string;
+    costoTotalAjuste: string;
+    fechaOperacion: string;
+    fechaLiquidacion: string;
+    observaciones: string;
+  },
+  opciones: { cantidadDisponible?: string } = {},
+): ErroresMovimiento {
+  const cantidad = datos.cantidad.trim();
+  const precio = datos.precioUnitario.trim();
+  const comisiones = datos.comisiones.trim();
+  const impuestos = datos.impuestos.trim();
+  const tipoCambio = datos.tipoCambio.trim();
+  const costoAjuste = datos.costoTotalAjuste.trim();
+  const observaciones = datos.observaciones.trim();
+  const hoy = fechaHoyIso();
+  const requierePrecio = datos.tipo
+    ? TIPOS_CON_PRECIO.includes(datos.tipo)
+    : true;
+  const esAjuste = datos.tipo ? TIPOS_AJUSTE.includes(datos.tipo) : false;
+
+  const errorCantidad = !cantidad
+    ? 'Escribe la cantidad.'
+    : !esDecimalNoNegativo(cantidad)
+      ? 'La cantidad debe ser un número mayor o igual que cero.'
+      : !esDecimalPositivo(cantidad)
+        ? 'La cantidad debe ser mayor que cero.'
+        : datos.tipo === 'VENTA' &&
+            opciones.cantidadDisponible !== undefined &&
+            compararDecimales(cantidad, opciones.cantidadDisponible) > 0
+          ? 'La cantidad supera lo disponible en la posición.'
+          : undefined;
+
+  return {
+    tipo: datos.tipo ? undefined : 'Selecciona el tipo de movimiento.',
+    cantidad: errorCantidad,
+    precioUnitario: requierePrecio
+      ? !precio
+        ? 'Escribe el precio unitario.'
+        : !esDecimalNoNegativo(precio)
+          ? 'El precio unitario debe ser un número mayor o igual que cero.'
+          : undefined
+      : !precio || esDecimalNoNegativo(precio)
+        ? undefined
+        : 'El precio unitario debe ser un número mayor o igual que cero.',
+    comisiones:
+      comisiones && !esDecimalNoNegativo(comisiones)
+        ? 'Las comisiones deben ser un número mayor o igual que cero.'
+        : undefined,
+    impuestos:
+      impuestos && !esDecimalNoNegativo(impuestos)
+        ? 'Los impuestos deben ser un número mayor o igual que cero.'
+        : undefined,
+    tipoCambio:
+      tipoCambio && !esDecimalPositivo(tipoCambio)
+        ? 'El tipo de cambio debe ser mayor que cero.'
+        : undefined,
+    costoTotalAjuste: esAjuste
+      ? !costoAjuste
+        ? 'Indica el costo total del ajuste.'
+        : !esDecimalNoNegativo(costoAjuste)
+          ? 'El costo del ajuste debe ser un número mayor o igual que cero.'
+          : undefined
+      : undefined,
+    fechaOperacion:
+      datos.fechaOperacion && datos.fechaOperacion > hoy
+        ? 'La fecha de operación no puede ser posterior a hoy.'
+        : undefined,
+    fechaLiquidacion:
+      datos.fechaLiquidacion &&
+      datos.fechaOperacion &&
+      datos.fechaLiquidacion < datos.fechaOperacion
+        ? 'La fecha de liquidación no puede ser anterior a la operación.'
+        : undefined,
+    observaciones:
+      observaciones.length > 500
+        ? 'Las observaciones no pueden superar los 500 caracteres.'
+        : undefined,
+  };
+}
+
+export interface ErroresReversion {
+  fechaOperacion?: string;
+  observaciones?: string;
+}
+
+/** Valida los datos opcionales de una reversión. */
+export function validarReversion(datos: {
+  fechaOperacion: string;
+  observaciones: string;
+}): ErroresReversion {
+  const hoy = fechaHoyIso();
+  const observaciones = datos.observaciones.trim();
+  return {
+    fechaOperacion:
+      datos.fechaOperacion && datos.fechaOperacion > hoy
+        ? 'La fecha de operación no puede ser posterior a hoy.'
         : undefined,
     observaciones:
       observaciones.length > 500

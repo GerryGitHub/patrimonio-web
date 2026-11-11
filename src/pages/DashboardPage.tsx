@@ -12,6 +12,7 @@ import { FinancialCard } from '../components/FinancialCard';
 import { LoadingState } from '../components/LoadingState';
 import { MetricCard } from '../components/MetricCard';
 import { PageHeader } from '../components/PageHeader';
+import { ResultadosMoneda } from '../components/ResultadosMoneda';
 import { StatusBadge } from '../components/StatusBadge';
 import {
   IconoAcciones,
@@ -345,7 +346,7 @@ export function DashboardPage() {
             tono="lavanda"
           />
           <MetricCard
-            etiqueta="Costo agregado"
+            etiqueta="Costo de adquisición"
             valor={
               cargandoPosiciones ? (
                 <span className="skeleton skeleton--line" aria-hidden="true" />
@@ -360,6 +361,23 @@ export function DashboardPage() {
               )
             }
             ayuda="Costo registrado por moneda. No es valor de mercado ni rendimiento."
+          />
+          <MetricCard
+            etiqueta="Resultado realizado"
+            valor={
+              cargandoPosiciones ? (
+                <span className="skeleton skeleton--line" aria-hidden="true" />
+              ) : errorPosiciones ? (
+                '—'
+              ) : (
+                <ResultadosMoneda
+                  resultados={resumen.resultadoPorMoneda}
+                  compacto
+                  vacio="Sin ventas"
+                />
+              )
+            }
+            ayuda="Solo ventas y reversiones confirmadas, por moneda."
           />
           <MetricCard
             etiqueta="Cuentas activas"

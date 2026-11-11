@@ -329,7 +329,7 @@ export function PosicionFormPage() {
         <FinancialCard
           id="titulo-formulario-posicion"
           titulo={editando ? 'Actualiza la posición' : 'Datos de la posición'}
-          subtitulo="La cuenta y el instrumento no cambian al editar una posición existente. La cantidad y el costo se podrán ajustar desde el módulo de movimientos en una entrega posterior."
+          subtitulo="La cuenta y el instrumento no cambian al editar una posición existente. Si ya tiene movimientos, la cantidad y el costo no se editan libremente: usa el historial para registrar ajustes o reversiones."
           acciones={
             <span className="dato-chip">
               <strong>{monedaCodigo}</strong>

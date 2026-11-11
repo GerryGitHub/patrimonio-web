@@ -166,6 +166,7 @@ export interface Posicion {
   cantidad: string;
   costoUnitario: string;
   costoTotal: string;
+  resultadoRealizado: string;
   monedaId: string;
   monedaCodigo: string;
   monedaNombre: string;
@@ -174,6 +175,7 @@ export interface Posicion {
   observaciones: string | null;
   activo: boolean;
   fechaApertura: string;
+  fechaUltimoMovimiento: string | null;
   fechaCreacion: string;
   fechaActualizacion: string;
 }
@@ -218,12 +220,140 @@ export interface DistribucionCategoria {
   costoPorMoneda: CostoPorMoneda[];
 }
 
+export interface ResultadoPorMoneda {
+  monedaId: string;
+  codigo: string;
+  nombre: string;
+  simbolo: string | null;
+  decimales: number;
+  resultado: string;
+}
+
 export interface ResumenPosiciones {
   totalPosiciones: number;
   posicionesActivas: number;
   instrumentosDistintos: number;
   costoPorMoneda: CostoPorMoneda[];
+  resultadoPorMoneda: ResultadoPorMoneda[];
   distribucionPorCategoria: DistribucionCategoria[];
+}
+
+export type TipoMovimiento =
+  | 'APERTURA'
+  | 'COMPRA'
+  | 'VENTA'
+  | 'AJUSTE_POSITIVO'
+  | 'AJUSTE_NEGATIVO'
+  | 'REVERSION';
+
+export type EstadoMovimiento = 'CONFIRMADO';
+
+export interface Movimiento {
+  id: string;
+  portafolioId: string;
+  cuentaId: string;
+  cuentaNombre: string;
+  posicionId: string;
+  instrumentoId: string;
+  instrumentoNombre: string;
+  instrumentoSimbolo: string | null;
+  tipo: TipoMovimiento;
+  tipoNombre: string;
+  fechaOperacion: string;
+  fechaLiquidacion: string | null;
+  cantidad: string;
+  precioUnitario: string;
+  importeBruto: string;
+  comisiones: string;
+  impuestos: string;
+  monedaId: string;
+  monedaCodigo: string;
+  monedaNombre: string;
+  monedaSimbolo: string | null;
+  monedaDecimales: number;
+  tipoCambio: string;
+  importeNeto: string;
+  costoAplicado: string;
+  resultadoRealizado: string;
+  cantidadResultante: string;
+  costoResultante: string;
+  estado: EstadoMovimiento;
+  usuarioId: string;
+  movimientoOrigenId: string | null;
+  revertido: boolean;
+  observaciones: string | null;
+  fechaCreacion: string;
+}
+
+export interface PaginaMovimientos {
+  items: Movimiento[];
+  pagina: number;
+  tamano: number;
+  total: number;
+  totalPaginas: number;
+}
+
+export interface RegistrarMovimientoDatos {
+  tipo: TipoMovimiento;
+  fechaOperacion?: string;
+  fechaLiquidacion?: string;
+  cantidad: string;
+  precioUnitario: string;
+  comisiones?: string;
+  impuestos?: string;
+  tipoCambio?: string;
+  costoTotalAjuste?: string;
+  observaciones?: string;
+  claveIdempotencia?: string;
+}
+
+export interface RevertirMovimientoDatos {
+  fechaOperacion?: string;
+  observaciones?: string;
+  claveIdempotencia?: string;
+}
+
+export interface FiltrosMovimientos {
+  tipo?: TipoMovimiento;
+  desde?: string;
+  hasta?: string;
+  pagina?: number;
+  tamano?: number;
+  orden?: 'asc' | 'desc';
+}
+
+export interface ResumenPosicion {
+  posicionId: string;
+  portafolioId: string;
+  cuentaId: string;
+  instrumentoId: string;
+  instrumentoNombre: string;
+  instrumentoSimbolo: string | null;
+  cantidad: string;
+  costoTotal: string;
+  costoUnitario: string;
+  resultadoRealizado: string;
+  monedaId: string;
+  monedaCodigo: string;
+  monedaNombre: string;
+  monedaSimbolo: string | null;
+  monedaDecimales: number;
+  fechaUltimoMovimiento: string | null;
+  movimientosConfirmados: number;
+  activo: boolean;
+}
+
+export interface ReconstruccionPosicion {
+  posicionId: string;
+  coincide: boolean;
+  reparada: boolean;
+  cantidadCalculada: string;
+  costoCalculado: string;
+  resultadoCalculado: string;
+  cantidadMaterializada: string;
+  costoMaterializado: string;
+  resultadoMaterializado: string;
+  diferencias: string[];
 }
 
 export interface CsrfResponse {

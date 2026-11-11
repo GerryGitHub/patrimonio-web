@@ -3278,6 +3278,82 @@ svg {
   }
 }
 
+.dialog.dialog--ancho {
+  max-width: 720px;
+  width: 100%;
+}
+
+/* Entrega 3: movimientos y resultado realizado */
+.resultado {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.resultado--positivo {
+  color: var(--color-positive);
+}
+
+.resultado--negativo {
+  color: var(--color-negative);
+}
+
+.resultado--neutral {
+  color: var(--color-text-muted);
+}
+
+.movimiento-tipo {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.movimiento-tipo .status-badge {
+  font-size: 0.7rem;
+}
+
+.movimiento-acciones {
+  display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 4px;
+}
+
+.movimiento-vista-previa {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  padding: 16px;
+  border-radius: 12px;
+  background: var(--color-surface-sunken);
+}
+
+.movimiento-vista-previa > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.movimiento-vista-previa span {
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+}
+
+.movimiento-vista-previa .card-note {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+.paginacion {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 12px;
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

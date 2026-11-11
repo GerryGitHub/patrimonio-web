@@ -7,11 +7,13 @@ import {
   validarEmail,
   validarInstitucion,
   validarLogin,
+  validarMovimiento,
   validarNombre,
   validarNombrePortafolio,
   validarPassword,
   validarPortafolio,
   validarRegistro,
+  validarReversion,
 } from './validation';
 
 describe('validarNombre', () => {
@@ -169,6 +171,88 @@ describe('validarInstitucion', () => {
     expect(errores.nombre).toBeDefined();
     expect(errores.pais).toBeDefined();
     expect(errores.sitioWeb).toBeDefined();
+  });
+});
+
+describe('validarMovimiento', () => {
+  const base = {
+    tipo: 'COMPRA' as const,
+    cantidad: '2',
+    precioUnitario: '20',
+    comisiones: '0',
+    impuestos: '0',
+    tipoCambio: '1',
+    costoTotalAjuste: '',
+    fechaOperacion: '2026-01-10',
+    fechaLiquidacion: '',
+    observaciones: '',
+  };
+
+  it('acepta una compra completa', () => {
+    const errores = validarMovimiento(base);
+    expect(tieneErrores(errores)).toBe(false);
+  });
+
+  it('exige cantidad positiva y precio en compras y ventas', () => {
+    const errores = validarMovimiento({
+      ...base,
+      cantidad: '0',
+      precioUnitario: '',
+    });
+
+    expect(errores.cantidad).toBeDefined();
+    expect(errores.precioUnitario).toBeDefined();
+  });
+
+  it('rechaza una venta superior a la cantidad disponible', () => {
+    const errores = validarMovimiento(
+      { ...base, tipo: 'VENTA', cantidad: '6' },
+      { cantidadDisponible: '5' },
+    );
+
+    expect(errores.cantidad).toContain('supera lo disponible');
+  });
+
+  it('exige el costo total explícito en los ajustes', () => {
+    const errores = validarMovimiento({
+      ...base,
+      tipo: 'AJUSTE_NEGATIVO',
+      precioUnitario: '0',
+      costoTotalAjuste: '',
+    });
+
+    expect(errores.costoTotalAjuste).toBeDefined();
+  });
+
+  it('valida fechas y tipo de cambio', () => {
+    const errores = validarMovimiento({
+      ...base,
+      fechaOperacion: '2999-01-01',
+      fechaLiquidacion: '2020-01-01',
+      tipoCambio: '0',
+      observaciones: 'a'.repeat(501),
+    });
+
+    expect(errores.fechaOperacion).toBeDefined();
+    expect(errores.fechaLiquidacion).toBeDefined();
+    expect(errores.tipoCambio).toBeDefined();
+    expect(errores.observaciones).toBeDefined();
+  });
+});
+
+describe('validarReversion', () => {
+  it('acepta datos vacíos y rechaza una fecha futura', () => {
+    expect(tieneErrores(validarReversion({
+      fechaOperacion: '',
+      observaciones: '',
+    }))).toBe(false);
+
+    expect(
+      validarReversion({
+        fechaOperacion: '2999-01-01',
+        observaciones: '',
+      }).fechaOperacion,
+    ).toBeDefined();
   });
 });
 

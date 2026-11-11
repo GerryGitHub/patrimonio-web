@@ -1,6 +1,7 @@
 import type {
   CostoPorMoneda,
   DistribucionCategoria,
+  ResultadoPorMoneda,
   ResumenPosiciones,
 } from '../api/types';
 import { sumarDecimales } from './decimales';
@@ -12,6 +13,7 @@ export function resumenVacio(): ResumenPosiciones {
     posicionesActivas: 0,
     instrumentosDistintos: 0,
     costoPorMoneda: [],
+    resultadoPorMoneda: [],
     distribucionPorCategoria: [],
   };
 }
@@ -34,6 +36,27 @@ function fusionarCostos(
   return [...porMoneda.values()].sort((a, b) => a.codigo.localeCompare(b.codigo));
 }
 
+function fusionarResultados(
+  resultados: ResultadoPorMoneda[],
+  nuevos: ResultadoPorMoneda[],
+): ResultadoPorMoneda[] {
+  const porMoneda = new Map<string, ResultadoPorMoneda>(
+    resultados.map((resultado) => [resultado.monedaId, { ...resultado }]),
+  );
+  for (const resultado of nuevos) {
+    const existente = porMoneda.get(resultado.monedaId);
+    if (existente) {
+      existente.resultado = sumarDecimales(
+        existente.resultado,
+        resultado.resultado,
+      );
+    } else {
+      porMoneda.set(resultado.monedaId, { ...resultado });
+    }
+  }
+  return [...porMoneda.values()].sort((a, b) => a.codigo.localeCompare(b.codigo));
+}
+
 /**
  * Combina los resúmenes de varios portafolios.
  *
@@ -49,12 +72,17 @@ export function combinarResumenes(
   let posicionesActivas = 0;
   let instrumentosDistintos = 0;
   let costoPorMoneda: CostoPorMoneda[] = [];
+  let resultadoPorMoneda: ResultadoPorMoneda[] = [];
 
   for (const resumen of resumenes) {
     totalPosiciones += resumen.totalPosiciones;
     posicionesActivas += resumen.posicionesActivas;
     instrumentosDistintos += resumen.instrumentosDistintos;
     costoPorMoneda = fusionarCostos(costoPorMoneda, resumen.costoPorMoneda);
+    resultadoPorMoneda = fusionarResultados(
+      resultadoPorMoneda,
+      resumen.resultadoPorMoneda,
+    );
 
     for (const categoria of resumen.distribucionPorCategoria) {
       const existente = porCategoria.get(categoria.claseActivoId);
@@ -81,6 +109,7 @@ export function combinarResumenes(
     posicionesActivas,
     instrumentosDistintos,
     costoPorMoneda,
+    resultadoPorMoneda,
     distribucionPorCategoria: [...porCategoria.values()].sort((a, b) =>
       a.claseActivoNombre.localeCompare(b.claseActivoNombre),
     ),
