@@ -121,6 +121,10 @@ export function App() {
                 element={<PortfolioPage />}
               />
               <Route
+                path="/activos/liquidez/:portafolioId/cuentas"
+                element={<CuentaDetailPage />}
+              />
+              <Route
                 path="/activos/liquidez/:portafolioId/cuentas/nueva"
                 element={<CuentaFormPage />}
               />

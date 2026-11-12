@@ -382,6 +382,15 @@ export function PortfolioPage() {
                 className="btn btn--secundario"
                 to={`/activos/liquidez/${encodeURIComponent(
                   portafolioId,
+                )}/cuentas`}
+              >
+                <IconoCuenta />
+                Cuentas y efectivo
+              </Link>
+              <Link
+                className="btn btn--secundario"
+                to={`/activos/liquidez/${encodeURIComponent(
+                  portafolioId,
                 )}/posiciones`}
               >
                 <IconoRentaFija />
