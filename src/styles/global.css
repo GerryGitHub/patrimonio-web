@@ -4523,3 +4523,167 @@ svg {
     padding: var(--space-4);
   }
 }
+
+/* =====================================================================
+   Navegación lateral · azul marino de la identidad
+   ===================================================================== */
+
+.sidebar {
+  border-right-color: var(--color-navy-700);
+  background: var(--color-navy);
+  color: #ffffff;
+}
+
+.sidebar .brand__name {
+  color: #ffffff;
+}
+
+.sidebar .brand__tag {
+  color: rgba(255, 255, 255, 0.58);
+}
+
+.sidebar .brand__mark {
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+}
+
+.sidebar__close {
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.sidebar__close:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+}
+
+.sidebar__section {
+  color: rgba(255, 255, 255, 0.48);
+}
+
+.sidebar__link,
+.sidebar__sublink {
+  color: rgba(255, 255, 255, 0.74);
+}
+
+.sidebar__link:hover,
+.sidebar__sublink:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+}
+
+.sidebar__link--activo {
+  background: var(--color-primary);
+  color: #ffffff;
+}
+
+.sidebar__link--activo:hover {
+  background: var(--color-primary-600);
+  color: #ffffff;
+}
+
+.sidebar__sublist {
+  border-left-color: rgba(255, 255, 255, 0.16);
+}
+
+.sidebar__sublink--activo {
+  background: rgba(101, 169, 216, 0.22);
+  color: #ffffff;
+}
+
+.sidebar__sublink--activo:hover {
+  background: rgba(101, 169, 216, 0.3);
+  color: #ffffff;
+}
+
+.sidebar__footer {
+  border-top-color: rgba(255, 255, 255, 0.14);
+}
+
+.sidebar__note {
+  background: rgba(255, 255, 255, 0.07);
+  color: rgba(255, 255, 255, 0.68);
+}
+
+.sidebar__note svg {
+  color: var(--color-sky);
+}
+
+.sidebar__profile {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+  padding: var(--space-2);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.sidebar__avatar {
+  background: rgba(255, 255, 255, 0.16);
+  color: #ffffff;
+}
+
+.sidebar__profile-datos {
+  display: grid;
+  flex: 1;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.sidebar__profile-datos strong,
+.sidebar__profile-datos small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar__profile-datos strong {
+  color: #ffffff;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+}
+
+.sidebar__profile-datos small {
+  color: rgba(255, 255, 255, 0.56);
+  font-size: 0.68rem;
+}
+
+.sidebar__profile-salir {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.sidebar__profile-salir:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+}
+
+/* ---------------------------------------- Cuentas y efectivo · refinamiento */
+
+.cuenta-panel__aviso {
+  display: grid;
+  gap: var(--space-2);
+  justify-items: start;
+}
+
+.metric-card__value .dato-no-disponible {
+  font-size: var(--font-size-sm);
+}
+
+.cuenta-lista__item--activa .cuenta-lista__referencia {
+  color: var(--color-primary-700);
+}
+
+.cuentas-efectivo__detalle .financial-card {
+  position: sticky;
+  top: calc(var(--topbar-height) + var(--space-4));
+}
+
+@media (max-width: 960px) {
+  .cuentas-efectivo__detalle .financial-card {
+    position: static;
+  }
+
+  .sidebar__note {
+    display: none;
+  }
+}

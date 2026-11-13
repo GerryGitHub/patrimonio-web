@@ -1,11 +1,18 @@
 import {
+  act,
   fireEvent,
   render,
   screen,
   waitFor,
   within,
 } from '@testing-library/react';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import {
+  Link,
+  MemoryRouter,
+  Route,
+  Routes,
+  useLocation,
+} from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CuentaDetailPage } from './CuentaDetailPage';
 import { ApiError } from '../lib/http';
@@ -15,7 +22,6 @@ import type {
   Moneda,
   Portafolio,
   Posicion,
-  ResumenPosiciones,
   TipoCuenta,
 } from '../api/types';
 
@@ -32,7 +38,6 @@ const mocks = vi.hoisted(() => ({
   listarPortafolios: vi.fn(),
   listarMonedas: vi.fn(),
   listarPosiciones: vi.fn(),
-  obtenerResumenPosiciones: vi.fn(),
   marcarSesionExpirada: vi.fn(),
 }));
 
@@ -54,7 +59,6 @@ vi.mock('../api/portafolios', () => ({
 
 vi.mock('../api/posiciones', () => ({
   listarPosiciones: mocks.listarPosiciones,
-  obtenerResumenPosiciones: mocks.obtenerResumenPosiciones,
 }));
 
 vi.mock('../auth/AuthContext', () => ({
@@ -141,15 +145,6 @@ const tipoCuentaSecundario: TipoCuenta = {
   activo: true,
 };
 
-const resumenPortafolio: ResumenPosiciones = {
-  totalPosiciones: 3,
-  posicionesActivas: 2,
-  instrumentosDistintos: 2,
-  costoPorMoneda: [],
-  resultadoPorMoneda: [],
-  distribucionPorCategoria: [],
-};
-
 function crearPosicion(parcial: Partial<Posicion> = {}): Posicion {
   return {
     id: 'posicion-1',
@@ -181,11 +176,43 @@ function crearPosicion(parcial: Partial<Posicion> = {}): Posicion {
   };
 }
 
+interface Diferido<T> {
+  promesa: Promise<T>;
+  resolver: (valor: T) => void;
+  rechazar: (motivo: unknown) => void;
+}
+
+function diferido<T>(): Diferido<T> {
+  let resolver!: (valor: T) => void;
+  let rechazar!: (motivo: unknown) => void;
+  const promesa = new Promise<T>((resolverPromesa, rechazarPromesa) => {
+    resolver = resolverPromesa;
+    rechazar = rechazarPromesa;
+  });
+  return { promesa, resolver, rechazar };
+}
+
+function RutaActual() {
+  const location = useLocation();
+  return <div data-testid="ruta-actual">{location.pathname}</div>;
+}
+
 function renderizar(
   entrada = `/activos/liquidez/${PORTAFOLIO_ID}/cuentas/${CUENTA_ID}`,
+  opciones: { enlaces?: Array<{ texto: string; ruta: string }> } = {},
 ) {
   return render(
     <MemoryRouter initialEntries={[entrada]}>
+      <RutaActual />
+      {opciones.enlaces ? (
+        <nav aria-label="Navegación de prueba">
+          {opciones.enlaces.map((enlace) => (
+            <Link key={enlace.ruta} to={enlace.ruta}>
+              {enlace.texto}
+            </Link>
+          ))}
+        </nav>
+      ) : null}
       <Routes>
         <Route
           path="/activos/liquidez/:portafolioId"
@@ -230,7 +257,6 @@ describe('CuentaDetailPage · Cuentas y efectivo', () => {
     mocks.listarPortafolios.mockReset();
     mocks.listarMonedas.mockReset();
     mocks.listarPosiciones.mockReset();
-    mocks.obtenerResumenPosiciones.mockReset();
     mocks.marcarSesionExpirada.mockReset();
 
     mocks.listarCuentas.mockResolvedValue([cuenta]);
@@ -246,7 +272,6 @@ describe('CuentaDetailPage · Cuentas y efectivo', () => {
     mocks.listarPortafolios.mockResolvedValue([portafolio]);
     mocks.listarMonedas.mockResolvedValue([monedaUsd, monedaEur]);
     mocks.listarPosiciones.mockResolvedValue([]);
-    mocks.obtenerResumenPosiciones.mockResolvedValue(resumenPortafolio);
   });
 
   it('renderiza el encabezado, el resumen, el listado y las pestañas', async () => {
@@ -259,10 +284,10 @@ describe('CuentaDetailPage · Cuentas y efectivo', () => {
       }),
     ).toBeInTheDocument();
 
-    expect(screen.getByText('Cuentas registradas')).toBeInTheDocument();
-    expect(screen.getByText('Cuentas activas')).toBeInTheDocument();
-    expect(screen.getByText('Posiciones del portafolio')).toBeInTheDocument();
-    expect(screen.getByText('Efectivo disponible')).toBeInTheDocument();
+    expect(await screen.findByText('Cuentas activas')).toBeInTheDocument();
+    expect(await screen.findByText('Efectivo total')).toBeInTheDocument();
+    expect(await screen.findByText('Valor en inversiones')).toBeInTheDocument();
+    expect(await screen.findByText('Total de cuentas')).toBeInTheDocument();
 
     await esperarDetalle();
 
@@ -284,13 +309,11 @@ describe('CuentaDetailPage · Cuentas y efectivo', () => {
       'true',
     );
 
-    const metricaPosiciones = screen
-      .getByText('Posiciones del portafolio')
+    const metricaTotal = screen
+      .getByText('Total de cuentas')
       .closest('article');
     await waitFor(() =>
-      expect(metricaPosiciones).toHaveTextContent(
-        String(resumenPortafolio.totalPosiciones),
-      ),
+      expect(metricaTotal).toHaveTextContent(String(1)),
     );
   });
 
@@ -302,6 +325,11 @@ describe('CuentaDetailPage · Cuentas y efectivo', () => {
       expect(mocks.obtenerCuenta).toHaveBeenCalledWith(
         PORTAFOLIO_ID,
         CUENTA_ID,
+      ),
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId('ruta-actual')).toHaveTextContent(
+        `/activos/liquidez/${PORTAFOLIO_ID}/cuentas/${CUENTA_ID}`,
       ),
     );
   });
@@ -685,19 +713,325 @@ describe('CuentaDetailPage · Cuentas y efectivo', () => {
     expect(await screen.findByText('Detalle de posición')).toBeInTheDocument();
   });
 
-  it('marca NO_DISPONIBLE en posiciones del portafolio si falla el resumen', async () => {
-    mocks.obtenerResumenPosiciones.mockRejectedValueOnce(
-      new ApiError(500, 'ERROR_INTERNO', 'Fallo temporal'),
+  it('marca NO_DISPONIBLE en efectivo y valor en inversiones sin usar el costo', async () => {
+    mocks.listarPosiciones.mockResolvedValue([
+      crearPosicion({ costoTotal: '100.00' }),
+    ]);
+
+    renderizar();
+    await esperarDetalle();
+
+    const efectivo = screen.getByText('Efectivo total').closest('article');
+    expect(efectivo).toHaveTextContent('NO_DISPONIBLE');
+    expect(efectivo).not.toHaveTextContent('100,00');
+
+    const inversiones = screen
+      .getByText('Valor en inversiones')
+      .closest('article');
+    expect(inversiones).toHaveTextContent('NO_DISPONIBLE');
+    expect(inversiones).not.toHaveTextContent('100,00');
+  });
+
+  it('descarta la respuesta tardía de una cuenta anterior', async () => {
+    mocks.listarCuentas.mockResolvedValue([cuenta, cuentaSecundaria]);
+
+    const respuestaPrincipal = diferido<CuentaFinanciera>();
+    const respuestaSecundaria = diferido<CuentaFinanciera>();
+    mocks.obtenerCuenta.mockImplementation(
+      (_portafolioId: string, id: string) =>
+        id === CUENTA_SECUNDARIA_ID
+          ? respuestaSecundaria.promesa
+          : respuestaPrincipal.promesa,
+    );
+
+    renderizar();
+
+    fireEvent.click(
+      await screen.findByRole('link', {
+        name: `Seleccionar la cuenta ${cuentaSecundaria.nombre}`,
+      }),
+    );
+
+    await act(async () => {
+      respuestaSecundaria.resolver(cuentaSecundaria);
+      await respuestaSecundaria.promesa;
+    });
+    await esperarDetalle(cuentaSecundaria.nombre);
+
+    await act(async () => {
+      respuestaPrincipal.resolver(cuenta);
+      await respuestaPrincipal.promesa;
+    });
+
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('heading', { name: cuenta.nombre, level: 3 }),
+      ).not.toBeInTheDocument(),
+    );
+    expect(
+      screen.getByRole('heading', {
+        name: cuentaSecundaria.nombre,
+        level: 3,
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it('mantiene la última selección al cambiar rápido entre cuentas', async () => {
+    mocks.listarCuentas.mockResolvedValue([cuenta, cuentaSecundaria]);
+    const respuestaSecundaria = diferido<CuentaFinanciera>();
+    mocks.obtenerCuenta.mockImplementation(
+      (_portafolioId: string, id: string) =>
+        id === CUENTA_SECUNDARIA_ID
+          ? respuestaSecundaria.promesa
+          : Promise.resolve(cuenta),
     );
 
     renderizar();
     await esperarDetalle();
 
-    const metrica = screen
-      .getByText('Posiciones del portafolio')
-      .closest('article');
-    await waitFor(() =>
-      expect(metrica).toHaveTextContent('NO_DISPONIBLE'),
+    fireEvent.click(
+      screen.getByRole('link', {
+        name: `Seleccionar la cuenta ${cuentaSecundaria.nombre}`,
+      }),
     );
+    fireEvent.click(
+      screen.getByRole('link', {
+        name: `Seleccionar la cuenta ${cuenta.nombre}`,
+      }),
+    );
+
+    await esperarDetalle();
+
+    await act(async () => {
+      respuestaSecundaria.resolver(cuentaSecundaria);
+      await respuestaSecundaria.promesa;
+    });
+
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('heading', {
+          name: cuentaSecundaria.nombre,
+          level: 3,
+        }),
+      ).not.toBeInTheDocument(),
+    );
+    expect(
+      screen.getByRole('heading', { name: cuenta.nombre, level: 3 }),
+    ).toBeInTheDocument();
+  });
+
+  it('aplica el cambio de estado solo a la cuenta que lo originó', async () => {
+    mocks.listarCuentas.mockResolvedValue([cuenta, cuentaSecundaria]);
+    mocks.obtenerCuenta.mockImplementation(
+      (_portafolioId: string, id: string) =>
+        Promise.resolve(
+          id === CUENTA_SECUNDARIA_ID ? cuentaSecundaria : cuenta,
+        ),
+    );
+    const respuestaEstado = diferido<CuentaFinanciera>();
+    mocks.cambiarEstadoCuenta.mockReturnValue(respuestaEstado.promesa);
+
+    renderizar();
+    await esperarDetalle();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Desactivar' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Sí, desactivar' }));
+
+    fireEvent.click(
+      await screen.findByRole('link', {
+        name: `Seleccionar la cuenta ${cuentaSecundaria.nombre}`,
+      }),
+    );
+    await esperarDetalle(cuentaSecundaria.nombre);
+
+    await act(async () => {
+      respuestaEstado.resolver({ ...cuenta, activo: false });
+      await respuestaEstado.promesa;
+    });
+
+    await waitFor(() => {
+      const item = screen.getByRole('link', {
+        name: `Seleccionar la cuenta ${cuenta.nombre}`,
+      });
+      expect(item).toHaveTextContent('Inactiva');
+    });
+
+    const panel = screen.getByRole('tabpanel');
+    expect(
+      screen.getByRole('heading', {
+        name: cuentaSecundaria.nombre,
+        level: 3,
+      }),
+    ).toBeInTheDocument();
+    expect(within(panel).getByText('Activa')).toBeInTheDocument();
+  });
+
+  it('no conserva datos del portafolio anterior al cambiar de portafolio', async () => {
+    const portafolioAlterno: Portafolio = {
+      ...portafolio,
+      id: 'portafolio-2',
+      nombre: 'Portafolio alterno',
+    };
+    const cuentaAlterna: CuentaFinanciera = {
+      ...cuenta,
+      id: 'cuenta-3',
+      nombre: 'Cuenta alterna',
+      numeroCuenta: '**** 9999',
+    };
+
+    mocks.listarPortafolios.mockResolvedValue([portafolio, portafolioAlterno]);
+    const respuestaAlterna = diferido<CuentaFinanciera[]>();
+    mocks.listarCuentas.mockImplementation((id: string) =>
+      id === portafolioAlterno.id
+        ? respuestaAlterna.promesa
+        : Promise.resolve([cuenta]),
+    );
+    mocks.obtenerCuenta.mockImplementation(
+      (_portafolioId: string, id: string) =>
+        Promise.resolve(id === cuentaAlterna.id ? cuentaAlterna : cuenta),
+    );
+
+    renderizar(`/activos/liquidez/${PORTAFOLIO_ID}/cuentas/${CUENTA_ID}`, {
+      enlaces: [
+        {
+          texto: 'Ir al portafolio alterno',
+          ruta: `/activos/liquidez/${portafolioAlterno.id}/cuentas/${cuentaAlterna.id}`,
+        },
+      ],
+    });
+
+    await esperarDetalle();
+
+    fireEvent.click(
+      screen.getByRole('link', { name: 'Ir al portafolio alterno' }),
+    );
+
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('heading', { name: cuenta.nombre, level: 3 }),
+      ).not.toBeInTheDocument(),
+    );
+    expect(screen.queryByText(cuenta.nombre)).not.toBeInTheDocument();
+    expect(mocks.listarCuentas).toHaveBeenCalledWith(portafolioAlterno.id);
+
+    await act(async () => {
+      respuestaAlterna.resolver([cuentaAlterna]);
+      await respuestaAlterna.promesa;
+    });
+
+    await esperarDetalle(cuentaAlterna.nombre);
+  });
+
+  it('recarga las posiciones de la cuenta seleccionada', async () => {
+    mocks.listarPosiciones
+      .mockResolvedValueOnce([crearPosicion()])
+      .mockResolvedValueOnce([
+        crearPosicion({
+          id: 'posicion-2',
+          instrumentoNombre: 'Bono B',
+          instrumentoSimbolo: 'BBB',
+        }),
+      ]);
+
+    renderizar();
+    await esperarDetalle();
+    fireEvent.click(screen.getByRole('tab', { name: 'Posiciones' }));
+
+    expect(await screen.findByText('Acción A')).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'Actualizar posiciones de la cuenta',
+      }),
+    );
+
+    expect(await screen.findByText('Bono B')).toBeInTheDocument();
+    expect(screen.queryByText('Acción A')).not.toBeInTheDocument();
+    expect(mocks.listarPosiciones).toHaveBeenCalledTimes(2);
+  });
+
+  it('navega las pestañas con el teclado', async () => {
+    renderizar();
+    await esperarDetalle();
+
+    const resumen = screen.getByRole('tab', { name: 'Resumen' });
+    resumen.focus();
+    fireEvent.keyDown(resumen, { key: 'ArrowRight' });
+
+    const movimientos = screen.getByRole('tab', { name: 'Movimientos' });
+    expect(movimientos).toHaveAttribute('aria-selected', 'true');
+    expect(document.activeElement).toBe(movimientos);
+
+    fireEvent.keyDown(movimientos, { key: 'End' });
+    const valuacion = screen.getByRole('tab', { name: 'Valuación' });
+    expect(valuacion).toHaveAttribute('aria-selected', 'true');
+    expect(document.activeElement).toBe(valuacion);
+
+    fireEvent.keyDown(valuacion, { key: 'Home' });
+    const resumenFinal = screen.getByRole('tab', { name: 'Resumen' });
+    expect(resumenFinal).toHaveAttribute('aria-selected', 'true');
+    expect(document.activeElement).toBe(resumenFinal);
+
+    fireEvent.keyDown(resumenFinal, { key: 'ArrowLeft' });
+    expect(screen.getByRole('tab', { name: 'Valuación' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+  });
+
+  it('sincroniza la selección con la URL de la cuenta', async () => {
+    mocks.listarCuentas.mockResolvedValue([cuenta, cuentaSecundaria]);
+    mocks.obtenerCuenta.mockImplementation(
+      (_portafolioId: string, id: string) =>
+        Promise.resolve(
+          id === CUENTA_SECUNDARIA_ID ? cuentaSecundaria : cuenta,
+        ),
+    );
+
+    renderizar(
+      `/activos/liquidez/${PORTAFOLIO_ID}/cuentas/${CUENTA_SECUNDARIA_ID}`,
+    );
+
+    await esperarDetalle(cuentaSecundaria.nombre);
+    await waitFor(() =>
+      expect(mocks.obtenerCuenta).toHaveBeenCalledWith(
+        PORTAFOLIO_ID,
+        CUENTA_SECUNDARIA_ID,
+      ),
+    );
+    expect(
+      screen.getByRole('link', {
+        name: `Seleccionar la cuenta ${cuentaSecundaria.nombre}`,
+      }),
+    ).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByTestId('ruta-actual')).toHaveTextContent(
+      `/activos/liquidez/${PORTAFOLIO_ID}/cuentas/${CUENTA_SECUNDARIA_ID}`,
+    );
+
+    fireEvent.click(
+      screen.getByRole('link', {
+        name: `Seleccionar la cuenta ${cuenta.nombre}`,
+      }),
+    );
+
+    await esperarDetalle(cuenta.nombre);
+    await waitFor(() =>
+      expect(screen.getByTestId('ruta-actual')).toHaveTextContent(
+        `/activos/liquidez/${PORTAFOLIO_ID}/cuentas/${CUENTA_ID}`,
+      ),
+    );
+  });
+
+  it('muestra un estado vacío cuando la búsqueda de cuentas no coincide', async () => {
+    renderizar();
+    await esperarDetalle();
+
+    fireEvent.change(screen.getByLabelText('Buscar cuenta'), {
+      target: { value: 'inexistente' },
+    });
+
+    expect(
+      screen.getByText('No hay cuentas con estos filtros'),
+    ).toBeInTheDocument();
   });
 });

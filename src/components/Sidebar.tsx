@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
+import { useAuth } from '../auth/AuthContext';
+import { iniciales } from '../lib/format';
 import { Logo } from './Logo';
 import {
   IconoAcciones,
@@ -16,6 +18,7 @@ import {
   IconoOtros,
   IconoRentaFija,
   IconoResumen,
+  IconoSalir,
   IconoVehiculo,
 } from './icons';
 
@@ -48,9 +51,12 @@ function esRutaDeActivos(pathname: string): boolean {
 /** Navegación lateral de escritorio y cajón de navegación en móvil. */
 export function Sidebar({ abierto, onCerrar }: SidebarProps) {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { usuario, cerrarSesion } = useAuth();
   const [activosAbierto, setActivosAbierto] = useState(
     esRutaDeActivos(location.pathname),
   );
+  const [saliendo, setSaliendo] = useState(false);
 
   useEffect(() => {
     if (esRutaDeActivos(location.pathname)) {
@@ -59,6 +65,16 @@ export function Sidebar({ abierto, onCerrar }: SidebarProps) {
   }, [location.pathname]);
 
   const activosActivo = esRutaDeActivos(location.pathname);
+
+  async function salir() {
+    setSaliendo(true);
+    try {
+      await cerrarSesion();
+      navigate('/login', { replace: true });
+    } finally {
+      setSaliendo(false);
+    }
+  }
 
   return (
     <aside
@@ -191,6 +207,28 @@ export function Sidebar({ abierto, onCerrar }: SidebarProps) {
             interfaz solo presenta la información autorizada.
           </p>
         </div>
+
+        {usuario ? (
+          <div className="sidebar__profile">
+            <span className="avatar sidebar__avatar" aria-hidden="true">
+              {iniciales(usuario.nombre)}
+            </span>
+            <span className="sidebar__profile-datos">
+              <strong>{usuario.nombre}</strong>
+              <small>{usuario.email}</small>
+            </span>
+            <button
+              type="button"
+              className="icon-button sidebar__profile-salir"
+              onClick={salir}
+              disabled={saliendo}
+              aria-label="Cerrar sesión"
+              title="Cerrar sesión"
+            >
+              <IconoSalir />
+            </button>
+          </div>
+        ) : null}
       </div>
     </aside>
   );

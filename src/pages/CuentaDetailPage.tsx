@@ -1,52 +1,25 @@
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-  type KeyboardEvent,
-} from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
-import {
-  cambiarEstadoCuenta,
-  listarCuentas,
-  listarTiposCuenta,
-  obtenerCuenta,
-} from '../api/cuentas';
-import { listarInstituciones } from '../api/instituciones';
-import { listarMonedas, listarPortafolios } from '../api/portafolios';
-import {
-  listarPosiciones,
-  obtenerResumenPosiciones,
-} from '../api/posiciones';
-import type {
-  CostoPorMoneda,
-  CuentaFinanciera,
-  Institucion,
-  Moneda,
-  Portafolio,
-  Posicion,
-  ResumenPosiciones,
-  TipoCuenta,
-} from '../api/types';
+import { cambiarEstadoCuenta } from '../api/cuentas';
+import type { CuentaFinanciera } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import { ConfirmationDialog } from '../components/ConfirmationDialog';
-import { CostosMoneda } from '../components/CostosMoneda';
 import { EmptyState } from '../components/EmptyState';
 import { ErrorState } from '../components/ErrorState';
-import { FilterBar } from '../components/FilterBar';
 import { FinancialCard } from '../components/FinancialCard';
 import { MetricCard } from '../components/MetricCard';
 import { PageHeader } from '../components/PageHeader';
-import { PosicionesTabla } from '../components/PosicionesTabla';
 import { SeccionNoDisponible } from '../components/SeccionNoDisponible';
 import { StatusBadge } from '../components/StatusBadge';
+import { CuentaListPanel } from '../components/cuentas/CuentaListPanel';
+import { CuentaPosicionesPanel } from '../components/cuentas/CuentaPosicionesPanel';
+import { CuentaResumenPanel } from '../components/cuentas/CuentaResumenPanel';
 import {
-  Alerta,
-  Boton,
-  Campo,
-  CampoSelect,
-  Esqueleto,
-} from '../components/ui';
+  CuentaTabs,
+  PESTANAS_CUENTA,
+  type PestanaCuenta,
+} from '../components/cuentas/CuentaTabs';
+import { Alerta, Boton, Esqueleto } from '../components/ui';
 import {
   IconoActividad,
   IconoCheck,
@@ -59,354 +32,124 @@ import {
   IconoPower,
   IconoRecargar,
   IconoRentaFija,
-  IconoResumen,
   IconoTendencia,
   IconoVacio,
   IconoVolver,
 } from '../components/icons';
-import { etiquetaTipoInstitucion } from '../lib/catalogos';
-import { sumarDecimales } from '../lib/decimales';
-import {
-  esNoAutenticado,
-  esNoEncontrado,
-  mensajeDeError,
-} from '../lib/errors';
-import { formatearFecha } from '../lib/format';
-
-type PestanaCuenta =
-  | 'resumen'
-  | 'movimientos'
-  | 'posiciones'
-  | 'contratos'
-  | 'rendimientos'
-  | 'valuacion';
-
-type FiltroEstado = 'todos' | 'activos' | 'inactivos';
-type FiltroEstadoPosiciones = 'todas' | 'activas' | 'inactivas';
+import { useCuentaSeleccionada } from '../hooks/useCuentaSeleccionada';
+import { usePortafolioCuentas } from '../hooks/usePortafolioCuentas';
+import { usePosicionesCuenta } from '../hooks/usePosicionesCuenta';
+import { resumirPosicionesCuenta } from '../lib/cuentas';
+import { esNoAutenticado, mensajeDeError } from '../lib/errors';
 
 interface EstadoNavegacion {
   creada?: boolean;
   actualizada?: boolean;
 }
 
-const PESTANAS: Array<{
-  id: PestanaCuenta;
-  etiqueta: string;
-  Icono: typeof IconoResumen;
-}> = [
-  { id: 'resumen', etiqueta: 'Resumen', Icono: IconoResumen },
-  { id: 'movimientos', etiqueta: 'Movimientos', Icono: IconoActividad },
-  { id: 'posiciones', etiqueta: 'Posiciones', Icono: IconoRentaFija },
-  { id: 'contratos', etiqueta: 'Contratos', Icono: IconoEscudo },
-  { id: 'rendimientos', etiqueta: 'Rendimientos', Icono: IconoTendencia },
-  { id: 'valuacion', etiqueta: 'Valuación', Icono: IconoGrafico },
-];
-
-function normalizarTexto(valor: string): string {
-  return valor
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLocaleLowerCase('es')
-    .trim();
-}
-
 function TextoNoDisponible() {
   return <span className="dato-no-disponible">NO_DISPONIBLE</span>;
 }
 
+/**
+ * Pantalla «Cuentas y efectivo».
+ *
+ * <p>Orquesta la carga del portafolio, la selección de la cuenta y el cambio de
+ * estado. Los paneles de listado, resumen y posiciones son componentes
+ * independientes; las respuestas que no corresponden a la selección vigente se
+ * descartan en los hooks de datos.</p>
+ */
 export function CuentaDetailPage() {
   const { portafolioId = '', cuentaId = '' } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
   const { marcarSesionExpirada } = useAuth();
 
-  const [portafolio, setPortafolio] = useState<Portafolio | null>(null);
-  const [cuentas, setCuentas] = useState<CuentaFinanciera[]>([]);
-  const [instituciones, setInstituciones] = useState<Institucion[]>([]);
-  const [tiposCuenta, setTiposCuenta] = useState<TipoCuenta[]>([]);
-  const [monedas, setMonedas] = useState<Moneda[]>([]);
+  const {
+    portafolio,
+    cuentas,
+    instituciones,
+    tiposCuenta,
+    monedas,
+    cargando,
+    error,
+    noEncontrado,
+    cargadoPara,
+    recargar,
+    aplicarCuentaActualizada,
+  } = usePortafolioCuentas(portafolioId);
 
-  const [cargandoInicial, setCargandoInicial] = useState(true);
-  const [errorInicial, setErrorInicial] = useState<string | null>(null);
-  const [noEncontrado, setNoEncontrado] = useState(false);
-  const [intento, setIntento] = useState(0);
+  const datosVigentes = cargadoPara === portafolioId;
+  const cargandoVista =
+    cargando || (!datosVigentes && !error && !noEncontrado);
 
-  const [resumenPortafolio, setResumenPortafolio] =
-    useState<ResumenPosiciones | null>(null);
-  const [cargandoResumen, setCargandoResumen] = useState(true);
-  const [errorResumen, setErrorResumen] = useState<string | null>(null);
+  const {
+    cuenta,
+    cargando: cargandoCuenta,
+    error: errorCuenta,
+    noEncontrada: cuentaNoEncontrada,
+    recargar: recargarCuenta,
+    aplicarCuenta,
+  } = useCuentaSeleccionada(portafolioId, cuentaId, datosVigentes);
 
-  const [cuenta, setCuenta] = useState<CuentaFinanciera | null>(null);
-  const [cargandoCuenta, setCargandoCuenta] = useState(false);
-  const [errorCuenta, setErrorCuenta] = useState<string | null>(null);
-  const [cuentaNoEncontrada, setCuentaNoEncontrada] = useState(false);
-  const [intentoCuenta, setIntentoCuenta] = useState(0);
-
-  const [posiciones, setPosiciones] = useState<Posicion[]>([]);
-  const [cargandoPosiciones, setCargandoPosiciones] = useState(false);
-  const [errorPosiciones, setErrorPosiciones] = useState<string | null>(null);
-  const [intentoPosiciones, setIntentoPosiciones] = useState(0);
+  const {
+    posiciones,
+    cargando: cargandoPosicionesHook,
+    error: errorPosiciones,
+    cargadasPara,
+    recargar: recargarPosicionesHook,
+  } = usePosicionesCuenta(portafolioId, cuentaId, Boolean(cuenta));
 
   const [pestana, setPestana] = useState<PestanaCuenta>('resumen');
-
-  const [busqueda, setBusqueda] = useState('');
-  const [filtroInstitucion, setFiltroInstitucion] = useState('');
-  const [filtroTipo, setFiltroTipo] = useState('');
-  const [filtroEstado, setFiltroEstado] = useState<FiltroEstado>('todos');
-
-  const [busquedaPosiciones, setBusquedaPosiciones] = useState('');
-  const [filtroEstadoPosiciones, setFiltroEstadoPosiciones] =
-    useState<FiltroEstadoPosiciones>('todas');
-
   const [confirmandoEstado, setConfirmandoEstado] = useState(false);
   const [cambiandoEstado, setCambiandoEstado] = useState(false);
   const [errorEstado, setErrorEstado] = useState<string | null>(null);
+  const [aviso, setAviso] = useState<string | null>(() => {
+    const estado = location.state as EstadoNavegacion | null;
+    if (estado?.creada) {
+      return 'Cuenta creada correctamente.';
+    }
+    if (estado?.actualizada) {
+      return 'Cambios guardados correctamente.';
+    }
+    return null;
+  });
 
-  const estadoNavegacion = location.state as EstadoNavegacion | null;
-  const [aviso, setAviso] = useState<string | null>(() =>
-    estadoNavegacion?.creada
-      ? 'Cuenta creada correctamente.'
-      : estadoNavegacion?.actualizada
-        ? 'Cambios guardados correctamente.'
-        : null,
-  );
+  const clavePosiciones = `${portafolioId}::${cuentaId}`;
+  const posicionesVigentes =
+    cargadasPara === clavePosiciones ? posiciones : [];
+  const cargandoPosiciones =
+    cargandoPosicionesHook ||
+    (Boolean(cuenta) && cargadasPara !== clavePosiciones && !errorPosiciones);
 
-  const recargar = useCallback(() => setIntento((valor) => valor + 1), []);
-  const recargarCuenta = useCallback(
-    () => setIntentoCuenta((valor) => valor + 1),
-    [],
-  );
-  const recargarPosiciones = useCallback(
-    () => setIntentoPosiciones((valor) => valor + 1),
-    [],
-  );
+  const resumenCuenta = resumirPosicionesCuenta(posicionesVigentes);
+
+  const recargarPosiciones = recargarPosicionesHook;
+
+  const seleccionActual = useRef({ portafolioId, cuentaId });
+  const peticionEstado = useRef(0);
 
   useEffect(() => {
-    let cancelado = false;
-
-    async function cargar() {
-      setCargandoInicial(true);
-      setErrorInicial(null);
-      setNoEncontrado(false);
-
-      try {
-        const [
-          portafolios,
-          cuentasPortafolio,
-          catalogoInstituciones,
-          catalogoTipos,
-          catalogoMonedas,
-        ] = await Promise.all([
-          listarPortafolios(),
-          listarCuentas(portafolioId),
-          listarInstituciones(),
-          listarTiposCuenta(),
-          listarMonedas(),
-        ]);
-
-        if (cancelado) {
-          return;
-        }
-
-        const encontrado =
-          portafolios.find((elemento) => elemento.id === portafolioId) ?? null;
-
-        if (!encontrado) {
-          setNoEncontrado(true);
-          return;
-        }
-
-        setPortafolio(encontrado);
-        setCuentas(cuentasPortafolio);
-        setInstituciones(catalogoInstituciones);
-        setTiposCuenta(catalogoTipos);
-        setMonedas(catalogoMonedas);
-      } catch (fallo) {
-        if (cancelado) {
-          return;
-        }
-        if (esNoAutenticado(fallo)) {
-          marcarSesionExpirada();
-          return;
-        }
-        if (esNoEncontrado(fallo)) {
-          setNoEncontrado(true);
-          return;
-        }
-        setErrorInicial(mensajeDeError(fallo, 'datos'));
-      } finally {
-        if (!cancelado) {
-          setCargandoInicial(false);
-        }
-      }
-    }
-
-    cargar();
-
-    return () => {
-      cancelado = true;
-    };
-  }, [portafolioId, intento, marcarSesionExpirada]);
+    seleccionActual.current = { portafolioId, cuentaId };
+  }, [portafolioId, cuentaId]);
 
   useEffect(() => {
-    if (cargandoInicial || noEncontrado || errorInicial) {
-      return;
-    }
-
-    let cancelado = false;
-    setCargandoResumen(true);
-    setErrorResumen(null);
-
-    obtenerResumenPosiciones(portafolioId)
-      .then((datos) => {
-        if (!cancelado) {
-          setResumenPortafolio(datos);
-        }
-      })
-      .catch((fallo: unknown) => {
-        if (cancelado) {
-          return;
-        }
-        if (esNoAutenticado(fallo)) {
-          marcarSesionExpirada();
-          return;
-        }
-        setErrorResumen(mensajeDeError(fallo, 'posicion'));
-      })
-      .finally(() => {
-        if (!cancelado) {
-          setCargandoResumen(false);
-        }
-      });
-
-    return () => {
-      cancelado = true;
-    };
-  }, [
-    portafolioId,
-    cargandoInicial,
-    noEncontrado,
-    errorInicial,
-    marcarSesionExpirada,
-  ]);
-
-  useEffect(() => {
-    if (!cuentaId || cargandoInicial || noEncontrado || errorInicial) {
-      setCuenta(null);
-      setCargandoCuenta(false);
-      setErrorCuenta(null);
-      setCuentaNoEncontrada(false);
-      return;
-    }
-
-    let cancelado = false;
-    setCuenta(null);
-    setCargandoCuenta(true);
-    setErrorCuenta(null);
-    setCuentaNoEncontrada(false);
-
-    obtenerCuenta(portafolioId, cuentaId)
-      .then((datos) => {
-        if (!cancelado) {
-          setCuenta(datos);
-        }
-      })
-      .catch((fallo: unknown) => {
-        if (cancelado) {
-          return;
-        }
-        if (esNoAutenticado(fallo)) {
-          marcarSesionExpirada();
-          return;
-        }
-        if (esNoEncontrado(fallo)) {
-          setCuentaNoEncontrada(true);
-          return;
-        }
-        setErrorCuenta(mensajeDeError(fallo, 'cuenta'));
-      })
-      .finally(() => {
-        if (!cancelado) {
-          setCargandoCuenta(false);
-        }
-      });
-
-    return () => {
-      cancelado = true;
-    };
-  }, [
-    portafolioId,
-    cuentaId,
-    cargandoInicial,
-    noEncontrado,
-    errorInicial,
-    intentoCuenta,
-    marcarSesionExpirada,
-  ]);
-
-  const cuentaCargadaId = cuenta?.id ?? '';
-
-  useEffect(() => {
-    if (!cuentaId || cuentaCargadaId !== cuentaId) {
-      setPosiciones([]);
-      setCargandoPosiciones(false);
-      setErrorPosiciones(null);
-      return;
-    }
-
-    let cancelado = false;
-    setCargandoPosiciones(true);
-    setErrorPosiciones(null);
-
-    listarPosiciones(portafolioId, { cuentaId })
-      .then((registradas) => {
-        if (cancelado) {
-          return;
-        }
-
-        // El backend ya filtra por cuenta. Se vuelve a comprobar para no
-        // mostrar posiciones ajenas si la respuesta llegara mezclada.
-        setPosiciones(
-          registradas.filter((posicion) => posicion.cuentaId === cuentaId),
-        );
-      })
-      .catch((fallo: unknown) => {
-        if (cancelado) {
-          return;
-        }
-        if (esNoAutenticado(fallo)) {
-          marcarSesionExpirada();
-          return;
-        }
-        setErrorPosiciones(mensajeDeError(fallo, 'posicion'));
-      })
-      .finally(() => {
-        if (!cancelado) {
-          setCargandoPosiciones(false);
-        }
-      });
-
-    return () => {
-      cancelado = true;
-    };
-  }, [
-    portafolioId,
-    cuentaId,
-    cuentaCargadaId,
-    intentoPosiciones,
-    marcarSesionExpirada,
-  ]);
+    setPestana('resumen');
+    setConfirmandoEstado(false);
+  }, [cuentaId]);
 
   const enlacePortafolio = `/activos/liquidez/${encodeURIComponent(
     portafolioId,
   )}`;
   const enlaceCuentas = `${enlacePortafolio}/cuentas`;
+  const enlaceNuevaPosicion = `${enlacePortafolio}/posiciones/nueva`;
 
   useEffect(() => {
     if (
-      cargandoInicial ||
+      !datosVigentes ||
+      cargando ||
       noEncontrado ||
-      errorInicial ||
+      error ||
       cuentaId ||
       cuentas.length === 0
     ) {
@@ -417,208 +160,52 @@ export function CuentaDetailPage() {
       replace: true,
     });
   }, [
-    cargandoInicial,
+    datosVigentes,
+    cargando,
     noEncontrado,
-    errorInicial,
+    error,
     cuentaId,
     cuentas,
     navigate,
     enlaceCuentas,
   ]);
 
-  useEffect(() => {
-    setPestana('resumen');
-    setBusquedaPosiciones('');
-    setFiltroEstadoPosiciones('todas');
-  }, [cuentaId]);
-
-  const institucionesPorId = useMemo(
-    () =>
-      new Map(
-        instituciones.map((institucion) => [institucion.id, institucion]),
-      ),
-    [instituciones],
+  const institucionesPorId = new Map(
+    instituciones.map((institucion) => [institucion.id, institucion]),
   );
-  const tiposPorId = useMemo(
-    () => new Map(tiposCuenta.map((tipo) => [tipo.id, tipo])),
-    [tiposCuenta],
-  );
-  const monedasPorId = useMemo(
-    () => new Map(monedas.map((moneda) => [moneda.id, moneda])),
-    [monedas],
-  );
+  const tiposPorId = new Map(tiposCuenta.map((tipo) => [tipo.id, tipo]));
+  const monedasPorId = new Map(monedas.map((moneda) => [moneda.id, moneda]));
 
   const cuentasActivas = cuentas.filter((elemento) => elemento.activo).length;
-  const hayFiltrosCuentas =
-    busqueda.trim() !== '' ||
-    filtroInstitucion !== '' ||
-    filtroTipo !== '' ||
-    filtroEstado !== 'todos';
-
-  const cuentasFiltradas = useMemo(() => {
-    const texto = normalizarTexto(busqueda);
-
-    return cuentas.filter((elemento) => {
-      if (
-        filtroInstitucion &&
-        elemento.institucionId !== filtroInstitucion
-      ) {
-        return false;
-      }
-      if (filtroTipo && elemento.tipoCuentaId !== filtroTipo) {
-        return false;
-      }
-      if (
-        filtroEstado !== 'todos' &&
-        elemento.activo !== (filtroEstado === 'activos')
-      ) {
-        return false;
-      }
-      if (!texto) {
-        return true;
-      }
-
-      const institucion = institucionesPorId.get(elemento.institucionId);
-      const tipo = tiposPorId.get(elemento.tipoCuentaId);
-      const moneda = monedasPorId.get(elemento.monedaId);
-      const contenido = normalizarTexto(
-        [
-          elemento.nombre,
-          elemento.numeroCuenta ?? '',
-          institucion?.nombre ?? '',
-          tipo?.nombre ?? '',
-          moneda?.codigo ?? '',
-        ].join(' '),
-      );
-
-      return contenido.includes(texto);
-    });
-  }, [
-    cuentas,
-    busqueda,
-    filtroInstitucion,
-    filtroTipo,
-    filtroEstado,
-    institucionesPorId,
-    tiposPorId,
-    monedasPorId,
-  ]);
-
-  function limpiarFiltrosCuentas() {
-    setBusqueda('');
-    setFiltroInstitucion('');
-    setFiltroTipo('');
-    setFiltroEstado('todos');
-  }
-
-  const resumenCuenta = useMemo(() => {
-    const activas = posiciones.filter((posicion) => posicion.activo).length;
-    const costoPorMoneda: CostoPorMoneda[] = [];
-
-    for (const posicion of posiciones) {
-      const existente = costoPorMoneda.find(
-        (costo) => costo.monedaId === posicion.monedaId,
-      );
-
-      if (existente) {
-        existente.costo = sumarDecimales(
-          existente.costo,
-          posicion.costoTotal,
-        );
-      } else {
-        costoPorMoneda.push({
-          monedaId: posicion.monedaId,
-          codigo: posicion.monedaCodigo,
-          nombre: posicion.monedaNombre,
-          simbolo: posicion.monedaSimbolo,
-          decimales: posicion.monedaDecimales,
-          costo: posicion.costoTotal,
-        });
-      }
-    }
-
-    return {
-      total: posiciones.length,
-      activas,
-      inactivas: posiciones.length - activas,
-      costoPorMoneda,
-    };
-  }, [posiciones]);
-
-  const hayFiltrosPosiciones =
-    busquedaPosiciones.trim() !== '' ||
-    filtroEstadoPosiciones !== 'todas';
-
-  const posicionesFiltradas = useMemo(() => {
-    const texto = normalizarTexto(busquedaPosiciones);
-
-    return posiciones.filter((posicion) => {
-      if (
-        filtroEstadoPosiciones !== 'todas' &&
-        posicion.activo !== (filtroEstadoPosiciones === 'activas')
-      ) {
-        return false;
-      }
-      if (!texto) {
-        return true;
-      }
-
-      return normalizarTexto(
-        [
-          posicion.instrumentoNombre,
-          posicion.instrumentoSimbolo ?? '',
-          posicion.claseActivoNombre,
-          posicion.tipoInstrumentoNombre,
-        ].join(' '),
-      ).includes(texto);
-    });
-  }, [posiciones, busquedaPosiciones, filtroEstadoPosiciones]);
-
-  function limpiarFiltrosPosiciones() {
-    setBusquedaPosiciones('');
-    setFiltroEstadoPosiciones('todas');
-  }
-
-  function manejarTecladoPestanas(evento: KeyboardEvent<HTMLDivElement>) {
-    const indiceActual = PESTANAS.findIndex(
-      (elemento) => elemento.id === pestana,
-    );
-    let siguiente = indiceActual;
-
-    if (evento.key === 'ArrowRight') {
-      siguiente = (indiceActual + 1) % PESTANAS.length;
-    } else if (evento.key === 'ArrowLeft') {
-      siguiente = (indiceActual - 1 + PESTANAS.length) % PESTANAS.length;
-    } else if (evento.key === 'Home') {
-      siguiente = 0;
-    } else if (evento.key === 'End') {
-      siguiente = PESTANAS.length - 1;
-    } else {
-      return;
-    }
-
-    evento.preventDefault();
-    const destino = PESTANAS[siguiente];
-    setPestana(destino.id);
-    document.getElementById(`tab-${destino.id}`)?.focus();
-  }
 
   async function cambiarEstado(nuevoActivo: boolean) {
+    const clave = { portafolioId, cuentaId };
+    const token = peticionEstado.current + 1;
+    peticionEstado.current = token;
+
     setCambiandoEstado(true);
     setErrorEstado(null);
 
     try {
       const actualizada = await cambiarEstadoCuenta(
-        portafolioId,
-        cuentaId,
+        clave.portafolioId,
+        clave.cuentaId,
         nuevoActivo,
       );
-      setCuenta(actualizada);
-      setCuentas((actuales) =>
-        actuales.map((elemento) =>
-          elemento.id === actualizada.id ? actualizada : elemento,
-        ),
-      );
+
+      if (peticionEstado.current !== token) {
+        return;
+      }
+
+      // La respuesta solo actualiza el portafolio y la cuenta que la
+      // originaron; si la selección cambió mientras tanto, se descarta.
+      if (seleccionActual.current.portafolioId === clave.portafolioId) {
+        aplicarCuentaActualizada(actualizada);
+      }
+      if (seleccionActual.current.cuentaId === clave.cuentaId) {
+        aplicarCuenta(actualizada);
+      }
+
       setConfirmandoEstado(false);
       setAviso(
         nuevoActivo
@@ -626,302 +213,49 @@ export function CuentaDetailPage() {
           : 'Cuenta desactivada correctamente. Su historial se conserva.',
       );
     } catch (fallo) {
+      if (peticionEstado.current !== token) {
+        return;
+      }
       if (esNoAutenticado(fallo)) {
         marcarSesionExpirada();
         return;
       }
       setErrorEstado(mensajeDeError(fallo, 'cuenta'));
     } finally {
-      setCambiandoEstado(false);
+      if (peticionEstado.current === token) {
+        setCambiandoEstado(false);
+      }
     }
   }
 
-  const institucion = institucionesPorId.get(cuenta?.institucionId ?? '');
-  const tipoCuenta = tiposPorId.get(cuenta?.tipoCuentaId ?? '');
-  const moneda = monedasPorId.get(cuenta?.monedaId ?? '');
-
-  const valorPosicionesPortafolio = cargandoResumen ? (
-    <Esqueleto className="esqueleto--linea" />
-  ) : errorResumen || !resumenPortafolio ? (
-    <TextoNoDisponible />
-  ) : (
-    resumenPortafolio.totalPosiciones
-  );
-
-  function contenidoPestana() {
-    if (!cuenta) {
-      return null;
-    }
-
+  function contenidoPestana(cuentaSeleccionada: CuentaFinanciera) {
     if (pestana === 'resumen') {
       return (
-        <div className="cuenta-panel__resumen">
-          <dl className="detalle__datos">
-            <div>
-              <dt>Institución</dt>
-              <dd>
-                {institucion
-                  ? `${institucion.nombre} · ${etiquetaTipoInstitucion(
-                      institucion.tipo,
-                    )}`
-                  : 'No disponible'}
-              </dd>
-            </div>
-            <div>
-              <dt>Tipo de cuenta</dt>
-              <dd>{tipoCuenta?.nombre ?? 'No disponible'}</dd>
-            </div>
-            <div>
-              <dt>Moneda</dt>
-              <dd>
-                {moneda
-                  ? `${moneda.codigo} · ${moneda.nombre}`
-                  : 'No disponible'}
-              </dd>
-            </div>
-            <div>
-              <dt>Referencia</dt>
-              <dd className="dato-enmascarado">
-                {cuenta.numeroCuenta ?? 'Sin referencia'}
-              </dd>
-            </div>
-            <div>
-              <dt>Fecha de apertura</dt>
-              <dd>{formatearFecha(cuenta.fechaApertura)}</dd>
-            </div>
-            <div>
-              <dt>Fecha de cierre</dt>
-              <dd>{formatearFecha(cuenta.fechaCierre)}</dd>
-            </div>
-            <div>
-              <dt>Estado</dt>
-              <dd>{cuenta.activo ? 'Activa' : 'Inactiva'}</dd>
-            </div>
-            <div>
-              <dt>Identificador</dt>
-              <dd className="dato-id">{cuenta.id}</dd>
-            </div>
-          </dl>
-
-          <div className="cuenta-panel__bloques">
-            <section
-              className="cuenta-panel__bloque"
-              aria-label="Resumen de posiciones de la cuenta"
-            >
-              <div className="cuenta-panel__bloque-cabecera">
-                <h3>Posiciones de la cuenta</h3>
-                <Boton
-                  variante="fantasma"
-                  onClick={() => setPestana('posiciones')}
-                >
-                  Ver posiciones
-                </Boton>
-              </div>
-
-              {cargandoPosiciones ? (
-                <div className="section-stack" aria-hidden="true">
-                  <Esqueleto className="esqueleto--linea" />
-                  <Esqueleto className="esqueleto--linea" />
-                </div>
-              ) : errorPosiciones ? (
-                <p className="cuenta-panel__texto">
-                  El resumen de posiciones no está disponible en este momento.
-                </p>
-              ) : resumenCuenta.total === 0 ? (
-                <p className="cuenta-panel__texto">
-                  Esta cuenta no tiene posiciones registradas.
-                </p>
-              ) : (
-                <div className="cuenta-panel__metricas">
-                  <div className="cuenta-panel__metrica">
-                    <strong>{resumenCuenta.total}</strong>
-                    <span>Posiciones</span>
-                  </div>
-                  <div className="cuenta-panel__metrica">
-                    <strong>{resumenCuenta.activas}</strong>
-                    <span>Activas</span>
-                  </div>
-                  <div className="cuenta-panel__metrica">
-                    <strong>{resumenCuenta.inactivas}</strong>
-                    <span>Inactivas</span>
-                  </div>
-                  <div className="cuenta-panel__metrica cuenta-panel__metrica--ancha">
-                    <span>Costo por moneda</span>
-                    <CostosMoneda
-                      costos={resumenCuenta.costoPorMoneda}
-                      compacto
-                      vacio="Sin costo"
-                    />
-                  </div>
-                </div>
-              )}
-            </section>
-
-            <section
-              className="cuenta-panel__bloque"
-              aria-label="Efectivo de la cuenta"
-            >
-              <div className="cuenta-panel__bloque-cabecera">
-                <h3>Efectivo de la cuenta</h3>
-                <StatusBadge estado="pendiente">NO_DISPONIBLE</StatusBadge>
-              </div>
-              <p className="cuenta-panel__texto">
-                La API actual no expone saldos de efectivo por cuenta. No se
-                muestra un importe estimado ni se usa el costo de las
-                posiciones como saldo disponible.
-              </p>
-            </section>
-          </div>
-        </div>
+        <CuentaResumenPanel
+          cuenta={cuentaSeleccionada}
+          institucion={institucionesPorId.get(cuentaSeleccionada.institucionId)}
+          tipoCuenta={tiposPorId.get(cuentaSeleccionada.tipoCuentaId)}
+          moneda={monedasPorId.get(cuentaSeleccionada.monedaId)}
+          resumen={resumenCuenta}
+          cargandoPosiciones={cargandoPosiciones}
+          errorPosiciones={errorPosiciones}
+          onVerPosiciones={() => setPestana('posiciones')}
+          onReintentarPosiciones={recargarPosiciones}
+        />
       );
     }
 
     if (pestana === 'posiciones') {
-      if (cargandoPosiciones) {
-        return (
-          <div className="section-stack" aria-hidden="true">
-            <Esqueleto className="esqueleto--titulo" />
-            <Esqueleto className="esqueleto--linea" />
-            <Esqueleto className="esqueleto--linea" />
-          </div>
-        );
-      }
-
-      if (errorPosiciones) {
-        return (
-          <ErrorState
-            mensaje={errorPosiciones}
-            titulo="No se pudieron consultar las posiciones"
-            onReintentar={recargarPosiciones}
-          />
-        );
-      }
-
-      if (resumenCuenta.total === 0) {
-        return (
-          <EmptyState
-            compacta
-            icono={<IconoRentaFija />}
-            titulo="Esta cuenta no tiene posiciones"
-            descripcion="Registra la posición inicial de un instrumento para dar seguimiento a esta cuenta."
-            accion={
-              <Link
-                className="btn btn--primario"
-                to={`${enlacePortafolio}/posiciones/nueva`}
-              >
-                <IconoMas />
-                Registrar posición
-              </Link>
-            }
-          />
-        );
-      }
-
       return (
-        <div className="section-stack">
-          <div className="metric-grid">
-            <MetricCard
-              etiqueta="Posiciones"
-              valor={resumenCuenta.total}
-            />
-            <MetricCard
-              etiqueta="Activas"
-              valor={resumenCuenta.activas}
-              tono="positivo"
-            />
-            <MetricCard
-              etiqueta="Inactivas"
-              valor={resumenCuenta.inactivas}
-              tono="lavanda"
-            />
-            <MetricCard
-              etiqueta="Costo por moneda"
-              valor={
-                <CostosMoneda
-                  costos={resumenCuenta.costoPorMoneda}
-                  compacto
-                  vacio="Sin costo"
-                />
-              }
-              ayuda="Costo registrado por moneda. No es efectivo ni valor de mercado."
-            />
-          </div>
-
-          <FilterBar
-            acciones={
-              hayFiltrosPosiciones ? (
-                <Boton
-                  variante="fantasma"
-                  onClick={limpiarFiltrosPosiciones}
-                >
-                  Limpiar filtros
-                </Boton>
-              ) : null
-            }
-          >
-            <Campo
-              etiqueta="Buscar posición"
-              type="search"
-              placeholder="Instrumento, símbolo o categoría"
-              value={busquedaPosiciones}
-              onChange={(evento) =>
-                setBusquedaPosiciones(evento.target.value)
-              }
-            />
-            <CampoSelect
-              etiqueta="Estado de la posición"
-              value={filtroEstadoPosiciones}
-              onChange={(evento) =>
-                setFiltroEstadoPosiciones(
-                  evento.target.value as FiltroEstadoPosiciones,
-                )
-              }
-            >
-              <option value="todas">Todos los estados</option>
-              <option value="activas">Solo activas</option>
-              <option value="inactivas">Solo inactivas</option>
-            </CampoSelect>
-          </FilterBar>
-
-          <div className="acciones-en-linea">
-            <Boton
-              variante="secundario"
-              onClick={recargarPosiciones}
-              aria-label="Actualizar posiciones de la cuenta"
-            >
-              <IconoRecargar />
-              Actualizar
-            </Boton>
-            <Link
-              className="btn btn--secundario"
-              to={`${enlacePortafolio}/posiciones/nueva`}
-            >
-              <IconoMas />
-              Registrar posición
-            </Link>
-          </div>
-
-          <PosicionesTabla
-            portafolioId={portafolioId}
-            posiciones={posicionesFiltradas}
-            vacio={
-              <EmptyState
-                compacta
-                icono={<IconoVacio />}
-                titulo="No hay posiciones con estos filtros"
-                descripcion="Prueba con otro instrumento o estado, o limpia los filtros para ver todas las posiciones de la cuenta."
-                accion={
-                  <Boton
-                    variante="secundario"
-                    onClick={limpiarFiltrosPosiciones}
-                  >
-                    Limpiar filtros
-                  </Boton>
-                }
-              />
-            }
-          />
-        </div>
+        <CuentaPosicionesPanel
+          portafolioId={portafolioId}
+          posiciones={posicionesVigentes}
+          resumen={resumenCuenta}
+          cargando={cargandoPosiciones}
+          error={errorPosiciones}
+          enlaceNuevaPosicion={enlaceNuevaPosicion}
+          onRecargar={recargarPosiciones}
+        />
       );
     }
 
@@ -999,7 +333,7 @@ export function CuentaDetailPage() {
           </>
         }
         meta={
-          !cargandoInicial && !errorInicial && !noEncontrado ? (
+          datosVigentes && !cargando && !error && !noEncontrado ? (
             <span className="dato-chip">
               <strong>{cuentas.length}</strong>
               {cuentas.length === 1 ? ' cuenta' : ' cuentas'}
@@ -1021,10 +355,10 @@ export function CuentaDetailPage() {
 
       {errorEstado ? <Alerta variante="error">{errorEstado}</Alerta> : null}
 
-      {cargandoInicial ? (
+      {cargandoVista ? (
         <div className="cuentas-efectivo__layout" aria-hidden="true">
           <FinancialCard
-            titulo="Cuentas del portafolio"
+            titulo="Mis cuentas"
             subtitulo="Cargando cuentas…"
           >
             <div className="section-stack">
@@ -1044,7 +378,7 @@ export function CuentaDetailPage() {
             </div>
           </FinancialCard>
         </div>
-      ) : noEncontrado ? (
+      ) : noEncontrado || (datosVigentes && !portafolio) ? (
         <EmptyState
           icono={<IconoVacio />}
           titulo="No encontramos este portafolio"
@@ -1055,40 +389,43 @@ export function CuentaDetailPage() {
             </Link>
           }
         />
-      ) : errorInicial ? (
+      ) : error ? (
         <ErrorState
-          mensaje={errorInicial}
+          mensaje={error}
           titulo="No se pudieron cargar las cuentas"
           onReintentar={recargar}
         />
-      ) : portafolio ? (
+      ) : portafolio && datosVigentes ? (
         <>
           <section aria-label="Resumen de cuentas y efectivo">
             <div className="metric-grid">
-              <MetricCard
-                etiqueta="Cuentas registradas"
-                valor={cuentas.length}
-                icono={<IconoCuenta />}
-                ayuda={`Portafolio ${portafolio.nombre}`}
-              />
               <MetricCard
                 etiqueta="Cuentas activas"
                 valor={cuentasActivas}
                 tono="positivo"
                 icono={<IconoCheck />}
+                ayuda={`${cuentas.length} ${
+                  cuentas.length === 1 ? 'cuenta registrada' : 'cuentas registradas'
+                } en el portafolio.`}
               />
               <MetricCard
-                etiqueta="Posiciones del portafolio"
-                valor={valorPosicionesPortafolio}
-                tono="lavanda"
-                icono={<IconoRentaFija />}
-                ayuda="Total registrado en el portafolio. No es efectivo ni valor de mercado."
-              />
-              <MetricCard
-                etiqueta="Efectivo disponible"
+                etiqueta="Efectivo total"
                 valor={<TextoNoDisponible />}
                 icono={<IconoLiquidez />}
-                ayuda="La API actual no expone saldos de efectivo."
+                ayuda="La API actual no expone saldos de efectivo. No se usa el costo de las posiciones como efectivo disponible."
+              />
+              <MetricCard
+                etiqueta="Valor en inversiones"
+                valor={<TextoNoDisponible />}
+                tono="lavanda"
+                icono={<IconoRentaFija />}
+                ayuda="La API no expone precios de mercado. El costo registrado no es una valuación."
+              />
+              <MetricCard
+                etiqueta="Total de cuentas"
+                valor={cuentas.length}
+                icono={<IconoCuenta />}
+                ayuda={`Portafolio ${portafolio.nombre}`}
               />
             </div>
           </section>
@@ -1098,192 +435,14 @@ export function CuentaDetailPage() {
               className="cuentas-efectivo__lista"
               aria-label="Listado de cuentas"
             >
-              <FinancialCard
-                titulo="Cuentas del portafolio"
-                subtitulo="Selecciona una cuenta para consultar su detalle."
-              >
-                <div className="section-stack">
-                  <div className="cuentas-efectivo__herramientas">
-                    <Campo
-                      etiqueta="Buscar cuenta"
-                      type="search"
-                      placeholder="Nombre, institución, tipo o referencia"
-                      value={busqueda}
-                      onChange={(evento) =>
-                        setBusqueda(evento.target.value)
-                      }
-                    />
-
-                    <FilterBar
-                      acciones={
-                        hayFiltrosCuentas ? (
-                          <Boton
-                            variante="fantasma"
-                            onClick={limpiarFiltrosCuentas}
-                          >
-                            Limpiar filtros
-                          </Boton>
-                        ) : null
-                      }
-                    >
-                      <CampoSelect
-                        etiqueta="Institución"
-                        value={filtroInstitucion}
-                        onChange={(evento) =>
-                          setFiltroInstitucion(evento.target.value)
-                        }
-                      >
-                        <option value="">Todas las instituciones</option>
-                        {instituciones.map((elemento) => (
-                          <option key={elemento.id} value={elemento.id}>
-                            {elemento.nombre}
-                            {!elemento.activo ? ' (inactiva)' : ''}
-                          </option>
-                        ))}
-                      </CampoSelect>
-
-                      <CampoSelect
-                        etiqueta="Tipo de cuenta"
-                        value={filtroTipo}
-                        onChange={(evento) =>
-                          setFiltroTipo(evento.target.value)
-                        }
-                      >
-                        <option value="">Todos los tipos</option>
-                        {tiposCuenta.map((elemento) => (
-                          <option key={elemento.id} value={elemento.id}>
-                            {elemento.nombre}
-                          </option>
-                        ))}
-                      </CampoSelect>
-
-                      <CampoSelect
-                        etiqueta="Estado de la cuenta"
-                        value={filtroEstado}
-                        onChange={(evento) =>
-                          setFiltroEstado(
-                            evento.target.value as FiltroEstado,
-                          )
-                        }
-                      >
-                        <option value="todos">Todos los estados</option>
-                        <option value="activos">Solo activas</option>
-                        <option value="inactivos">Solo inactivas</option>
-                      </CampoSelect>
-                    </FilterBar>
-                  </div>
-
-                  {cuentasFiltradas.length === 0 ? (
-                    hayFiltrosCuentas ? (
-                      <EmptyState
-                        compacta
-                        icono={<IconoVacio />}
-                        titulo="No hay cuentas con estos filtros"
-                        descripcion="Prueba con otra institución, tipo o estado, o limpia los filtros para ver todas las cuentas."
-                        accion={
-                          <Boton
-                            variante="secundario"
-                            onClick={limpiarFiltrosCuentas}
-                          >
-                            Limpiar filtros
-                          </Boton>
-                        }
-                      />
-                    ) : (
-                      <EmptyState
-                        compacta
-                        icono={<IconoCuenta />}
-                        titulo="Este portafolio no tiene cuentas"
-                        descripcion="Registra una cuenta financiera para empezar a organizar su información."
-                        accion={
-                          <Link
-                            className="btn btn--primario"
-                            to={`${enlaceCuentas}/nueva`}
-                          >
-                            <IconoMas />
-                            Registrar cuenta
-                          </Link>
-                        }
-                      />
-                    )
-                  ) : (
-                    <ul
-                      className="cuenta-lista"
-                      aria-label="Cuentas financieras"
-                    >
-                      {cuentasFiltradas.map((elemento) => {
-                        const institucionElemento = institucionesPorId.get(
-                          elemento.institucionId,
-                        );
-                        const tipoElemento = tiposPorId.get(
-                          elemento.tipoCuentaId,
-                        );
-                        const monedaElemento = monedasPorId.get(
-                          elemento.monedaId,
-                        );
-                        const activa = elemento.id === cuentaId;
-
-                        return (
-                          <li key={elemento.id}>
-                            <Link
-                              className={`cuenta-lista__item ${
-                                activa
-                                  ? 'cuenta-lista__item--activa'
-                                  : ''
-                              }`.trim()}
-                              to={`${enlaceCuentas}/${encodeURIComponent(
-                                elemento.id,
-                              )}`}
-                              aria-current={activa ? 'page' : undefined}
-                              aria-label={`Seleccionar la cuenta ${elemento.nombre}`}
-                            >
-                              <span
-                                className="cuenta-lista__icono"
-                                aria-hidden="true"
-                              >
-                                <IconoCuenta />
-                              </span>
-                              <span className="cuenta-lista__cuerpo">
-                                <span className="cuenta-lista__titulo">
-                                  <strong>{elemento.nombre}</strong>
-                                  <StatusBadge
-                                    estado={
-                                      elemento.activo
-                                        ? 'activo'
-                                        : 'inactivo'
-                                    }
-                                  >
-                                    {elemento.activo
-                                      ? 'Activa'
-                                      : 'Inactiva'}
-                                  </StatusBadge>
-                                </span>
-                                <span className="cuenta-lista__meta">
-                                  <span>
-                                    {institucionElemento?.nombre ??
-                                      'Institución no disponible'}
-                                  </span>
-                                  <span>
-                                    {tipoElemento?.nombre ??
-                                      'Tipo no disponible'}
-                                  </span>
-                                  <span className="moneda-chip">
-                                    {monedaElemento?.codigo ?? '—'}
-                                  </span>
-                                </span>
-                                <span className="cuenta-lista__referencia">
-                                  {elemento.numeroCuenta ??
-                                    'Sin referencia'}
-                                </span>
-                              </span>
-                            </Link>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  )}
-                </div>
-              </FinancialCard>
+              <CuentaListPanel
+                cuentas={cuentas}
+                instituciones={instituciones}
+                tiposCuenta={tiposCuenta}
+                monedas={monedas}
+                seleccionadaId={cuentaId}
+                rutaBase={enlaceCuentas}
+              />
             </aside>
 
             <div className="cuentas-efectivo__detalle">
@@ -1340,10 +499,7 @@ export function CuentaDetailPage() {
                     titulo="No encontramos esta cuenta"
                     descripcion="Puede que ya no exista o que no tengas acceso a ella. Elige otra cuenta del listado para continuar."
                     accion={
-                      <Link
-                        className="btn btn--secundario"
-                        to={enlaceCuentas}
-                      >
+                      <Link className="btn btn--secundario" to={enlaceCuentas}>
                         Elegir otra cuenta
                       </Link>
                     }
@@ -1377,9 +533,7 @@ export function CuentaDetailPage() {
                         Editar
                       </Link>
                       <Boton
-                        variante={
-                          cuenta.activo ? 'peligro' : 'primario'
-                        }
+                        variante={cuenta.activo ? 'peligro' : 'primario'}
                         onClick={() => {
                           setAviso(null);
                           setErrorEstado(null);
@@ -1395,18 +549,13 @@ export function CuentaDetailPage() {
                 >
                   <div className="section-stack">
                     <div className="detalle__cabecera">
-                      <span
-                        className="detalle__icono"
-                        aria-hidden="true"
-                      >
+                      <span className="detalle__icono" aria-hidden="true">
                         <IconoCuenta />
                       </span>
                       <div className="detalle__titulo">
                         <h3>{cuenta.nombre}</h3>
                         <StatusBadge
-                          estado={
-                            cuenta.activo ? 'activo' : 'inactivo'
-                          }
+                          estado={cuenta.activo ? 'activo' : 'inactivo'}
                         >
                           {cuenta.activo ? 'Activa' : 'Inactiva'}
                         </StatusBadge>
@@ -1417,31 +566,9 @@ export function CuentaDetailPage() {
                       {cuenta.descripcion ?? 'Sin descripción.'}
                     </p>
 
-                    <div
-                      className="tabs-cuenta"
-                      role="tablist"
-                      aria-label="Secciones de la cuenta"
-                      onKeyDown={manejarTecladoPestanas}
-                    >
-                      {PESTANAS.map(({ id, etiqueta, Icono }) => (
-                        <button
-                          key={id}
-                          type="button"
-                          role="tab"
-                          id={`tab-${id}`}
-                          className="tabs-cuenta__tab"
-                          aria-selected={pestana === id}
-                          aria-controls={`panel-${id}`}
-                          tabIndex={pestana === id ? 0 : -1}
-                          onClick={() => setPestana(id)}
-                        >
-                          <Icono />
-                          {etiqueta}
-                        </button>
-                      ))}
-                    </div>
+                    <CuentaTabs activa={pestana} onCambiar={setPestana} />
 
-                    {PESTANAS.map(({ id }) => (
+                    {PESTANAS_CUENTA.map(({ id }) => (
                       <div
                         key={id}
                         className="cuenta-panel"
@@ -1450,7 +577,7 @@ export function CuentaDetailPage() {
                         aria-labelledby={`tab-${id}`}
                         hidden={pestana !== id}
                       >
-                        {pestana === id ? contenidoPestana() : null}
+                        {pestana === id ? contenidoPestana(cuenta) : null}
                       </div>
                     ))}
                   </div>
